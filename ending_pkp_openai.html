@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>K+P vs K Quiz (Lichess Tablebase)</title>
+
+  <!-- cm-chessboard (board + pieces) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/assets/chessboard.css">
+  <!-- cm-chessboard arrows extension -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/assets/extensions/arrows/arrows.css">
+
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --panel: #111828;
+      --panel2: #0f1624;
+      --text: #e7eefc;
+      --muted: #a9b6cf;
+      --border: rgba(231, 238, 252, 0.12);
+      --shadow: 0 14px 40px rgba(0,0,0,0.35);
+      --btn: #1c2a44;
+      --btnHover: #243659;
+      --ok: #2ecc71;
+      --bad: #ff5c5c;
+      --warn: #ffcc66;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background: radial-gradient(1200px 600px at 50% 0%, #162445 0%, var(--bg) 55%);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .app {
+      width: min(980px, 100%);
+      display: grid;
+      gap: 18px;
+      grid-template-columns: 1fr;
+    }
+
+    header {
+      display: flex;
+      gap: 14px;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0.2px;
+    }
+    header .hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .boardCard, .sideCard {
+      background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .boardWrap {
+      padding: 16px;
+      display: grid;
+      place-items: center;
+    }
+
+    /* cm-chessboard needs explicit sizing */
+    #board {
+      width: min(560px, 90vw);
+      height: min(560px, 90vw);
+      max-width: 560px;
+      max-height: 560px;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .sideCard {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 13px;
+      background: rgba(255,255,255,0.03);
+    }
+    .pill strong { color: var(--text); font-weight: 650; }
+
+    .status {
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.35;
+      min-height: 58px;
+      white-space: pre-wrap;
+    }
+    .status.ok { border-color: rgba(46, 204, 113, 0.35); color: rgba(46, 204, 113, 0.95); }
+    .status.bad { border-color: rgba(255, 92, 92, 0.35); color: rgba(255, 92, 92, 0.95); }
+    .status.warn { border-color: rgba(255, 204, 102, 0.35); color: rgba(255, 204, 102, 0.95); }
+
+    .btnRow {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .btnRow2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    button, a.linkBtn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--btn);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 650;
+      letter-spacing: 0.2px;
+      transition: transform 0.04s ease, background 0.15s ease, opacity 0.15s ease;
+      text-align: center;
+      text-decoration: none;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+    }
+    button:hover, a.linkBtn:hover { background: var(--btnHover); }
+    button:active, a.linkBtn:active { transform: translateY(1px); }
+    button:disabled, a.linkBtn[aria-disabled="true"] {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      color: rgba(231, 238, 252, 0.85);
+      word-break: break-word;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 2px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header>
+      <h1>K+P vs K — Tablebase Quiz</h1>
+      <p class="hint">Always White to move. Outcome is from White’s perspective (Win / Draw / Loss).</p>
+    </header>
+
+    <section class="layout">
+      <div class="boardCard">
+        <div class="boardWrap">
+          <div id="board" aria-label="Chessboard"></div>
+        </div>
+      </div>
+
+      <div class="sideCard">
+        <div class="row">
+          <div class="pill">Current Streak: <strong id="streak">0</strong></div>
+          <div class="pill">Status: <strong id="loading">Ready</strong></div>
+        </div>
+
+        <div id="status" class="status">Click “Play Again” to start.</div>
+
+        <div class="btnRow">
+          <button id="btnWin"  type="button">Win</button>
+          <button id="btnDraw" type="button">Draw</button>
+          <button id="btnLoss" type="button">Loss</button>
+        </div>
+
+        <div class="btnRow2">
+          <button id="btnAgain" type="button">Play Again</button>
+          <a id="analyzeLink" class="linkBtn" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">Analyze on Lichess</a>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="small">
+          FEN (for reference):
+          <div id="fen" class="mono">—</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module">
+    import { Chessboard, COLOR, BORDER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/Chessboard.js";
+    import { Arrows, ARROW_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/extensions/arrows/Arrows.js";
+
+    // ----------------------------
+    // Configuration
+    // ----------------------------
+    const TABLEBASE_URL = "https://tablebase.lichess.ovh/standard?fen=";
+
+    // "Interesting position" filters:
+    // - kings are within a few squares of the pawn
+    // - pawn isn't immediately capturable by the relevant king
+    // - avoid tablebase-trivial positions via a small DTZ threshold
+    const GEN = {
+      attempts: 30,
+      pawnColorBlackChance: 0.30, // mostly white-pawn scenarios, but some "vice versa"
+      pawnRankMin: 3,
+      pawnRankMax: 6,
+      kingNearMin: 1,
+      kingNearMax: 4,
+      requireAtLeastOneKingVeryClose: 2, // at least one king within this Chebyshev distance of the pawn
+      trivialAbsDtzMax: 3 // reject positions with |dtz| <= this (often immediate/obvious)
+    };
+
+    // ----------------------------
+    // DOM
+    // ----------------------------
+    const el = {
+      streak: document.getElementById("streak"),
+      loading: document.getElementById("loading"),
+      status: document.getElementById("status"),
+      fen: document.getElementById("fen"),
+      analyze: document.getElementById("analyzeLink"),
+      btnWin: document.getElementById("btnWin"),
+      btnDraw: document.getElementById("btnDraw"),
+      btnLoss: document.getElementById("btnLoss"),
+      btnAgain: document.getElementById("btnAgain"),
+    };
+
+    // ----------------------------
+    // State
+    // ----------------------------
+    let streak = 0;
+    let answered = false;
+    let currentFen = null;
+    let currentTb = null;
+
+    // Initialize board
+    const board = new Chessboard(document.getElementById("board"), {
+      assetsUrl: "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/assets/",
+      position: "8/8/8/8/8/8/8/8 w - - 0 1",
+      orientation: COLOR.white,
+      style: {
+        pieces: { file: "pieces/standard.svg" }, // Wikimedia standard (cburnett-style)
+        borderType: BORDER_TYPE.frame
+      },
+      extensions: [{ class: Arrows }]
+    });
+
+    // ----------------------------
+    // Utilities (coords, squares)
+    // ----------------------------
+    const FILES = "abcdefgh";
+
+    function randInt(min, maxInclusive) {
+      return Math.floor(Math.random() * (maxInclusive - min + 1)) + min;
+    }
+    function choice(arr) { return arr[randInt(0, arr.length - 1)]; }
+
+    function sqToXY(sq) {
+      return { x: FILES.indexOf(sq[0]), y: parseInt(sq[1], 10) - 1 }; // y: 0..7 for ranks 1..8
+    }
+    function xyToSq(x, y) {
+      return FILES[x] + String(y + 1);
+    }
+    function onBoard(x, y) {
+      return x >= 0 && x < 8 && y >= 0 && y < 8;
+    }
+    function chebDist(aSq, bSq) {
+      const a = sqToXY(aSq), b = sqToXY(bSq);
+      return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+    }
+    function kingsAdjacent(wk, bk) {
+      return chebDist(wk, bk) <= 1;
+    }
+
+    function kingCanCapture(targetSq, kingSq, otherKingSq) {
+      // King capture is legal if:
+      // - target is adjacent (Chebyshev distance 1)
+      // - after moving onto target, kings are not adjacent
+      if (chebDist(kingSq, targetSq) !== 1) return false;
+      return chebDist(targetSq, otherKingSq) >= 2;
+    }
+
+    function randomSquareNear(baseSq, minD, maxD, forbiddenSet) {
+      const base = sqToXY(baseSq);
+      for (let t = 0; t < 80; t++) {
+        const dx = randInt(-maxD, maxD);
+        const dy = randInt(-maxD, maxD);
+        if (dx === 0 && dy === 0) continue;
+        const d = Math.max(Math.abs(dx), Math.abs(dy));
+        if (d < minD || d > maxD) continue;
+        const x = base.x + dx, y = base.y + dy;
+        if (!onBoard(x, y)) continue;
+        const sq = xyToSq(x, y);
+        if (forbiddenSet && forbiddenSet.has(sq)) continue;
+        return sq;
+      }
+      return null;
+    }
+
+    function piecesToFen({ wk, bk, pawnSq, pawnColor }) {
+      // Build 8x8 empty, place pieces, then encode ranks 8->1
+      const grid = Array.from({ length: 8 }, () => Array(8).fill(""));
+      const place = (sq, ch) => {
+        const { x, y } = sqToXY(sq);
+        grid[y][x] = ch;
+      };
+
+      place(wk, "K");
+      place(bk, "k");
+      place(pawnSq, pawnColor === "w" ? "P" : "p");
+
+      const ranks = [];
+      for (let y = 7; y >= 0; y--) {
+        let run = 0;
+        let s = "";
+        for (let x = 0; x < 8; x++) {
+          const ch = grid[y][x];
+          if (!ch) {
+            run++;
+          } else {
+            if (run > 0) { s += String(run); run = 0; }
+            s += ch;
+          }
+        }
+        if (run > 0) s += String(run);
+        ranks.push(s || "8");
+      }
+
+      // Always White to move, no castling, no ep
+      return `${ranks.join("/")} w - - 0 1`;
+    }
+
+    // ----------------------------
+    // Lichess analyze link formatting
+    // ----------------------------
+    function lichessFenPath(fen) {
+      // Lichess expects FEN with spaces replaced by underscores; slashes must remain as-is.
+      return fen.trim().replace(/\s+/g, "_");
+    }
+
+    function setAnalyzeLink(fen) {
+      const href = fen ? `https://lichess.org/analysis/standard/${lichessFenPath(fen)}` : "#";
+      el.analyze.href = href;
+      el.analyze.setAttribute("aria-disabled", fen ? "false" : "true");
+      el.analyze.style.pointerEvents = fen ? "auto" : "none";
+      el.analyze.style.opacity = fen ? "1" : "0.55";
+    }
+
+    // ----------------------------
+    // Tablebase
+    // ----------------------------
+    async function fetchTablebase(fen) {
+      const url = TABLEBASE_URL + encodeURIComponent(fen);
+      const res = await fetch(url);
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Tablebase error: HTTP ${res.status}${text ? " — " + text.slice(0, 120) : ""}`);
+      }
+      return await res.json();
+    }
+
+    // IMPORTANT:
+    // tb.category is for the SIDE TO MOVE (here: White, because we always query "w").
+    // BUT tb.moves[].category is for the resulting position, i.e. the SIDE TO MOVE AFTER THE MOVE (here: Black).
+    // Therefore, when selecting best moves for White, we must invert the move category.
+    function stmValue(cat) {
+      // Value for SIDE-TO-MOVE in that position
+      if (cat === "win") return 1;
+      if (cat === "draw") return 0;
+      return -1; // "loss"
+    }
+
+    function bestMovesFromTb(tbJson) {
+      const moves = Array.isArray(tbJson?.moves) ? tbJson.moves : [];
+      if (!moves.length) return [];
+
+      // For each White move, the resulting position is Black-to-move.
+      // If Black-to-move is "loss", that's best for White (White "win").
+      let bestScore = -999;
+
+      for (const m of moves) {
+        const blackScore = stmValue(m.category); // category for Black to move
+        const whiteScore = -blackScore;          // invert to White's perspective
+        if (whiteScore > bestScore) bestScore = whiteScore;
+      }
+
+      return moves
+        .filter(m => (-stmValue(m.category)) === bestScore)
+        .map(m => ({
+          uci: m.uci,
+          san: m.san,
+          category: m.category
+        }));
+    }
+
+    function uciToArrow(uci) {
+      // UCI can be like "e2e4" or "a7a8q" (promotion). We only need from/to squares.
+      if (typeof uci !== "string" || uci.length < 4) return null;
+      const from = uci.slice(0, 2);
+      const to = uci.slice(2, 4);
+      if (!FILES.includes(from[0]) || !FILES.includes(to[0])) return null;
+      if (!"12345678".includes(from[1]) || !"12345678".includes(to[1])) return null;
+      return { from, to };
+    }
+
+    function prettyOutcome(cat) {
+      if (cat === "win") return "Win (White)";
+      if (cat === "draw") return "Draw";
+      return "Loss (White)";
+    }
+
+    // ----------------------------
+    // UI helpers
+    // ----------------------------
+    function setLoading(text, isBusy) {
+      el.loading.textContent = text;
+      el.btnAgain.disabled = !!isBusy;
+      setGuessEnabled(!isBusy && !answered);
+    }
+
+    function setGuessEnabled(enabled) {
+      el.btnWin.disabled = !enabled;
+      el.btnDraw.disabled = !enabled;
+      el.btnLoss.disabled = !enabled;
+    }
+
+    function setStatus(kind, text) {
+      el.status.classList.remove("ok", "bad", "warn");
+      if (kind) el.status.classList.add(kind);
+      el.status.textContent = text;
+    }
+
+    function updateStreakDisplay() {
+      el.streak.textContent = String(streak);
+    }
+
+    function clearArrows() {
+      if (typeof board.removeArrows === "function") board.removeArrows();
+    }
+
+    function drawBestMoveArrows(bestMoves) {
+      clearArrows();
+      for (const m of bestMoves) {
+        const arrow = uciToArrow(m.uci);
+        if (!arrow) continue;
+        board.addArrow(ARROW_TYPE.default, arrow.from, arrow.to);
+      }
+    }
+
+    // ----------------------------
+    // Position generation (heuristics + tablebase filtering)
+    // ----------------------------
+    function generateCandidatePosition() {
+      const pawnColor = Math.random() < GEN.pawnColorBlackChance ? "b" : "w";
+
+      const pawnFile = choice([...FILES]);
+      const pawnRank = randInt(GEN.pawnRankMin, GEN.pawnRankMax);
+      const pawnSq = pawnFile + String(pawnRank);
+
+      const forbidden = new Set([pawnSq]);
+
+      const wk = randomSquareNear(pawnSq, GEN.kingNearMin, GEN.kingNearMax, forbidden);
+      if (!wk) return null;
+      forbidden.add(wk);
+
+      let bk = null;
+      for (let t = 0; t < 60; t++) {
+        const cand = randomSquareNear(pawnSq, GEN.kingNearMin, GEN.kingNearMax, forbidden);
+        if (!cand) continue;
+        if (kingsAdjacent(wk, cand)) continue;
+        bk = cand;
+        break;
+      }
+      if (!bk) return null;
+
+      const dW = chebDist(wk, pawnSq);
+      const dB = chebDist(bk, pawnSq);
+      if (Math.min(dW, dB) > GEN.requireAtLeastOneKingVeryClose) return null;
+
+      if (pawnColor === "w" && kingCanCapture(pawnSq, bk, wk)) return null;
+      if (pawnColor === "b" && kingCanCapture(pawnSq, wk, bk)) return null;
+
+      const fen = piecesToFen({ wk, bk, pawnSq, pawnColor });
+      return { fen };
+    }
+
+    async function generateInterestingPosition() {
+      let lastOk = null;
+
+      for (let i = 0; i < GEN.attempts; i++) {
+        const cand = generateCandidatePosition();
+        if (!cand) continue;
+
+        try {
+          const tb = await fetchTablebase(cand.fen);
+
+          if (tb?.checkmate || tb?.stalemate) continue;
+
+          if (typeof tb?.dtz === "number" && Math.abs(tb.dtz) <= GEN.trivialAbsDtzMax) {
+            lastOk = { fen: cand.fen, tb };
+            continue;
+          }
+
+          if (!Array.isArray(tb?.moves) || tb.moves.length === 0) continue;
+
+          return { fen: cand.fen, tb };
+        } catch {
+          continue;
+        }
+      }
+
+      if (lastOk) return lastOk;
+
+      for (let i = 0; i < 20; i++) {
+        const cand = generateCandidatePosition();
+        if (!cand) continue;
+        try {
+          const tb = await fetchTablebase(cand.fen);
+          if (Array.isArray(tb?.moves) && tb.moves.length > 0) return { fen: cand.fen, tb };
+        } catch {}
+      }
+
+      throw new Error("Failed to generate a valid position (network/API issue?).");
+    }
+
+    // ----------------------------
+    // Game flow
+    // ----------------------------
+    async function newGame() {
+      answered = false;
+      currentFen = null;
+      currentTb = null;
+      clearArrows();
+
+      setStatus("warn", "Generating a new position and querying the Lichess tablebase…");
+      setLoading("Loading…", true);
+      el.fen.textContent = "—";
+      setAnalyzeLink(null);
+
+      try {
+        const { fen, tb } = await generateInterestingPosition();
+        currentFen = fen;
+        currentTb = tb;
+
+        // Update board and UI
+        await board.setPosition(fen);
+        el.fen.textContent = fen;
+        setAnalyzeLink(fen);
+
+        setStatus(null, "What is the theoretical result for White?\nClick Win / Draw / Loss.");
+        setLoading("Ready", false);
+      } catch (err) {
+        setLoading("Error", false);
+        setStatus("bad", String(err?.message || err));
+      }
+    }
+
+    function answer(userPick) {
+      if (!currentTb || answered) return;
+
+      answered = true;
+      setGuessEnabled(false);
+
+      // tb.category is for side to move (White). This part is correct.
+      const correct = currentTb.category; // "win" | "draw" | "loss" for White-to-move
+      const ok = userPick === correct;
+
+      if (ok) {
+        streak += 1;
+      } else {
+        streak = 0;
+      }
+      updateStreakDisplay();
+
+      const best = bestMovesFromTb(currentTb);
+      drawBestMoveArrows(best);
+
+      const bestSAN = best.map(m => m.san).join(", ") || "—";
+      const dtzText = (typeof currentTb.dtz === "number") ? `\nDTZ: ${currentTb.dtz}` : "";
+
+      if (ok) {
+        setStatus("ok", `Correct.\nOutcome: ${prettyOutcome(correct)}\nBest move(s): ${bestSAN}${dtzText}`);
+      } else {
+        setStatus("bad", `Incorrect.\nCorrect outcome: ${prettyOutcome(correct)}\nBest move(s): ${bestSAN}${dtzText}`);
+      }
+    }
+
+    // ----------------------------
+    // Event listeners
+    // ----------------------------
+    el.btnWin.addEventListener("click", () => answer("win"));
+    el.btnDraw.addEventListener("click", () => answer("draw"));
+    el.btnLoss.addEventListener("click", () => answer("loss"));
+    el.btnAgain.addEventListener("click", () => newGame());
+
+    // Start
+    updateStreakDisplay();
+    setGuessEnabled(false);
+    newGame();
+  </script>
+</body>
+</html>

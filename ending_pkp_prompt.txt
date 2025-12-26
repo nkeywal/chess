@@ -1,0 +1,19 @@
+Create a single-file HTML page to quiz users on King + Pawn vs. King chess endgames.
+
+The page should feature:
+- A chess position showing King + Pawn vs. King (or vice versa).
+- A 2D board display using proper piece icons/graphics (not text characters like "r" or "k").
+- A random but **legal** position.
+- **Use heuristics to select "interesting" positions** (avoiding trivial or completely obvious cases).
+- The board is always oriented from White's perspective.
+- It is always White's turn to move.
+- Three buttons: Win, Draw, Loss.
+- **Keep track of and display a "Streak" counter** showing the number of consecutive correct answers.
+- If the player answers incorrectly, provide the correct answer.
+- In all cases, visualize the best move(s) for White using arrows. Display *all* best moves if there is more than one.
+- A "Play Again" button.
+- A link to the Lichess analysis board for **the current position** (Lichess accepts FEN format, e.g., https://lichess.org/analysis/FEN_STRING).
+
+To build this page correctly:
+- Search the internet for rules or libraries to strictly determine the outcome (Win/Loss/Draw) in King + Pawn vs. King positions.
+
