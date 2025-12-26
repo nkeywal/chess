@@ -22,29 +22,30 @@
       --btn: #1c2a44;
       --btnHover: #243659;
 
-      /* Board sizing:
-         - default: allow big board on desktop
-         - mobile override below keeps room for buttons without scrolling */
-      --boardSize: min(560px, 68vh);
+      /* sizing knobs */
       --pagePad: 24px;
       --cardPad: 16px;
       --gap: 18px;
+
+      /* default board size (desktop/tablet) */
+      --boardSize: min(560px, 68vh);
     }
 
     @media (max-width: 900px) {
-      :root {
-        --gap: 14px;
-      }
+      :root { --gap: 14px; }
     }
 
-    /* Mobile: keep everything visible without scrolling */
+    /* MOBILE FIXES (requested):
+       - prevent horizontal clipping (file "h" cut)
+       - keep Play Again / Analyze visible without scrolling on a standard phone */
     @media (max-width: 600px) {
       :root {
-        --pagePad: 12px;
-        --cardPad: 12px;
-        --gap: 12px;
-        /* Key change: cap board by viewport height so buttons stay visible */
-        --boardSize: min(92vw, 46vh, 520px);
+        --pagePad: 10px;     /* reduce wasted width */
+        --cardPad: 10px;     /* reduce wasted width */
+        --gap: 10px;
+
+        /* smaller board so the controls fit in the first screen */
+        --boardSize: min(96vw, 44svh, 520px);
       }
     }
 
@@ -55,7 +56,7 @@
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
       background: radial-gradient(1200px 600px at 50% 0%, #162445 0%, var(--bg) 55%);
       color: var(--text);
-      min-height: 100vh;
+      min-height: 100svh;
       padding: var(--pagePad);
       display: grid;
       place-items: center;
@@ -117,17 +118,20 @@
       place-items: center;
     }
 
-    /* IMPORTANT: use a sizing wrapper so we never overflow horizontally (no clipped file 'h') */
+    /* Board sizing wrapper:
+       - never overflow horizontally (fix "h" clipped)
+       - do NOT clip the board here (wrapper stays visible); clipping is on #board itself */
     .boardSizer {
       width: min(100%, var(--boardSize));
       height: min(100%, var(--boardSize));
-      border-radius: 12px;
-      overflow: hidden;
+      overflow: visible; /* IMPORTANT: avoid cutting last file/rank due to fractional rendering */
     }
 
     #board {
       width: 100%;
       height: 100%;
+      border-radius: 12px;
+      overflow: hidden; /* clip to rounded corners here, not on the wrapper */
     }
 
     .sideCard {
@@ -210,15 +214,13 @@
       cursor: not-allowed;
     }
 
+    /* Mobile: slightly tighter controls to avoid scrolling */
     @media (max-width: 600px) {
-      button, a.linkBtn {
-        padding: 9px 10px;
-        min-height: 40px;
-        border-radius: 12px;
-      }
-      .pill { font-size: 12px; padding: 7px 9px; }
-      .status { font-size: 13px; }
       .sideCard { gap: 9px; }
+      .pill { font-size: 12px; padding: 7px 9px; }
+      .status { font-size: 13px; padding: 9px 10px; }
+      button, a.linkBtn { min-height: 40px; padding: 9px 10px; }
+      .btnRow, .btnRow2 { gap: 8px; }
     }
 
     details {
@@ -292,7 +294,6 @@
           <a id="analyzeLink" class="linkBtn" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">Analyze on Lichess</a>
         </div>
 
-        <!-- Collapsible details so mobile stays compact -->
         <details id="details">
           <summary>Details</summary>
           <div class="detailsBody">
@@ -318,9 +319,6 @@
     import { Chessboard, COLOR, BORDER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/Chessboard.js";
     import { Arrows, ARROW_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/extensions/arrows/Arrows.js";
 
-    // ----------------------------
-    // Configuration
-    // ----------------------------
     const TABLEBASE_URL = "https://tablebase.lichess.ovh/standard?fen=";
 
     const GEN = {
@@ -334,9 +332,6 @@
       trivialAbsDtzMax: 3
     };
 
-    // ----------------------------
-    // DOM
-    // ----------------------------
     const el = {
       streak: document.getElementById("streak"),
       loading: document.getElementById("loading"),
@@ -351,15 +346,11 @@
       btnAgain: document.getElementById("btnAgain"),
     };
 
-    // ----------------------------
-    // State
-    // ----------------------------
     let streak = 0;
     let answered = false;
-    let currentFen = null;     // full FEN (with "w - - 0 1")
+    let currentFen = null;
     let currentTb = null;
 
-    // Initialize board
     const board = new Chessboard(document.getElementById("board"), {
       assetsUrl: "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/assets/",
       position: "8/8/8/8/8/8/8/8",
@@ -371,9 +362,6 @@
       extensions: [{ class: Arrows }]
     });
 
-    // ----------------------------
-    // Utilities
-    // ----------------------------
     const FILES = "abcdefgh";
 
     function randInt(min, maxInclusive) {
@@ -444,7 +432,6 @@
       return `${ranks.join("/")} w - - 0 1`;
     }
 
-    // Lichess analysis URL expects underscores instead of spaces
     function lichessFenPath(fen) {
       return fen.trim().replace(/\s+/g, "_");
     }
@@ -467,7 +454,6 @@
       return await res.json();
     }
 
-    // Categories can be "win", "syzygy-win", "cursed-win", ... / draw / ...loss
     function coarseWDL(cat) {
       const s = String(cat || "").toLowerCase();
       if (s.includes("win")) return "win";
@@ -479,7 +465,7 @@
     function invertWDL(wdl) {
       if (wdl === "win") return "loss";
       if (wdl === "loss") return "win";
-      return wdl; // draw/unknown
+      return wdl;
     }
 
     function prettyOutcome(wdl) {
@@ -511,10 +497,6 @@
       }
     }
 
-    // Best moves:
-    // Lichess tablebase API states moves are "best first".
-    // Each move.category is for the SIDE TO MOVE AFTER THE MOVE (i.e., Black here).
-    // We pick all moves that tie with the first move under White's POV and DTZ.
     function bestMovesFromTb(tbJson) {
       const moves = Array.isArray(tbJson?.moves) ? tbJson.moves : [];
       if (!moves.length) return [];
@@ -541,9 +523,6 @@
         .filter(m => m.whiteWdl === topWhiteWdl && m.whiteDtz === topWhiteDtz);
     }
 
-    // ----------------------------
-    // UI helpers
-    // ----------------------------
     function setLoading(text, isBusy) {
       el.loading.textContent = text;
       el.btnAgain.disabled = !!isBusy;
@@ -572,9 +551,6 @@
       el.bestMoves.textContent = bestMovesSAN || "—";
     }
 
-    // ----------------------------
-    // Position generation
-    // ----------------------------
     function generateCandidatePosition() {
       const pawnColor = Math.random() < GEN.pawnColorBlackChance ? "b" : "w";
 
@@ -647,9 +623,6 @@
       throw new Error("Failed to generate a valid position (network/API issue?).");
     }
 
-    // ----------------------------
-    // Game flow
-    // ----------------------------
     async function newGame() {
       answered = false;
       currentFen = null;
@@ -667,13 +640,11 @@
         currentFen = fen;
         currentTb = tb;
 
-        // cm-chessboard is happiest with piece-placement only
         const placement = fen.split(" ")[0];
         await board.setPosition(placement);
 
         setAnalyzeLink(fen);
 
-        const rootWdl = coarseWDL(tb.category); // for side to move (White)
         const dtz = (typeof tb.precise_dtz === "number") ? tb.precise_dtz
                  : (typeof tb.dtz === "number") ? tb.dtz
                  : null;
@@ -693,7 +664,7 @@
       answered = true;
       setGuessEnabled(false);
 
-      const correctWdl = coarseWDL(currentTb.category); // White to move
+      const correctWdl = coarseWDL(currentTb.category);
       const ok = userPick === correctWdl;
 
       streak = ok ? (streak + 1) : 0;
@@ -716,15 +687,11 @@
       }
     }
 
-    // ----------------------------
-    // Event listeners
-    // ----------------------------
     el.btnWin.addEventListener("click", () => answer("win"));
     el.btnDraw.addEventListener("click", () => answer("draw"));
     el.btnLoss.addEventListener("click", () => answer("loss"));
     el.btnAgain.addEventListener("click", () => newGame());
 
-    // Start
     updateStreakDisplay();
     setGuessEnabled(false);
     newGame();
