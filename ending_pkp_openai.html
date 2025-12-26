@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>K+P vs K Quiz (Lichess Tablebase)</title>
 
   <!-- cm-chessboard (board + pieces) -->
@@ -21,51 +21,81 @@
       --shadow: 0 14px 40px rgba(0,0,0,0.35);
       --btn: #1c2a44;
       --btnHover: #243659;
-      --ok: #2ecc71;
-      --bad: #ff5c5c;
-      --warn: #ffcc66;
+
+      /* Board sizing:
+         - default: allow big board on desktop
+         - mobile override below keeps room for buttons without scrolling */
+      --boardSize: min(560px, 68vh);
+      --pagePad: 24px;
+      --cardPad: 16px;
+      --gap: 18px;
+    }
+
+    @media (max-width: 900px) {
+      :root {
+        --gap: 14px;
+      }
+    }
+
+    /* Mobile: keep everything visible without scrolling */
+    @media (max-width: 600px) {
+      :root {
+        --pagePad: 12px;
+        --cardPad: 12px;
+        --gap: 12px;
+        /* Key change: cap board by viewport height so buttons stay visible */
+        --boardSize: min(92vw, 46vh, 520px);
+      }
     }
 
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
       background: radial-gradient(1200px 600px at 50% 0%, #162445 0%, var(--bg) 55%);
       color: var(--text);
+      min-height: 100vh;
+      padding: var(--pagePad);
       display: grid;
       place-items: center;
-      min-height: 100vh;
-      padding: 24px;
     }
 
     .app {
       width: min(980px, 100%);
       display: grid;
-      gap: 18px;
-      grid-template-columns: 1fr;
+      gap: var(--gap);
     }
 
     header {
       display: flex;
-      gap: 14px;
+      gap: 12px;
       align-items: baseline;
       justify-content: space-between;
+      flex-wrap: wrap;
     }
+
     header h1 {
       margin: 0;
       font-size: 20px;
       letter-spacing: 0.2px;
     }
+
     header .hint {
       margin: 0;
       color: var(--muted);
       font-size: 13px;
     }
 
+    @media (max-width: 600px) {
+      header h1 { font-size: 18px; }
+      header .hint { font-size: 12px; }
+    }
+
     .layout {
       display: grid;
       grid-template-columns: 1fr 360px;
-      gap: 18px;
+      gap: var(--gap);
       align-items: start;
     }
 
@@ -73,7 +103,7 @@
       .layout { grid-template-columns: 1fr; }
     }
 
-    .boardCard, .sideCard {
+    .card {
       background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
       border: 1px solid var(--border);
       border-radius: 16px;
@@ -81,26 +111,29 @@
       overflow: hidden;
     }
 
-    .boardWrap {
-      padding: 16px;
+    .boardCard {
+      padding: var(--cardPad);
       display: grid;
       place-items: center;
     }
 
-    /* cm-chessboard needs explicit sizing */
-    #board {
-      width: min(560px, 90vw);
-      height: min(560px, 90vw);
-      max-width: 560px;
-      max-height: 560px;
+    /* IMPORTANT: use a sizing wrapper so we never overflow horizontally (no clipped file 'h') */
+    .boardSizer {
+      width: min(100%, var(--boardSize));
+      height: min(100%, var(--boardSize));
       border-radius: 12px;
       overflow: hidden;
     }
 
+    #board {
+      width: 100%;
+      height: 100%;
+    }
+
     .sideCard {
-      padding: 16px;
+      padding: var(--cardPad);
       display: grid;
-      gap: 12px;
+      gap: 10px;
     }
 
     .row {
@@ -122,21 +155,21 @@
       font-size: 13px;
       background: rgba(255,255,255,0.03);
     }
+
     .pill strong { color: var(--text); font-weight: 650; }
 
     .status {
-      padding: 12px;
+      padding: 10px 12px;
       border-radius: 12px;
       border: 1px solid var(--border);
       background: rgba(255,255,255,0.02);
       color: var(--muted);
       font-size: 14px;
       line-height: 1.35;
-      min-height: 58px;
       white-space: pre-wrap;
     }
-    .status.ok { border-color: rgba(46, 204, 113, 0.35); color: rgba(46, 204, 113, 0.95); }
-    .status.bad { border-color: rgba(255, 92, 92, 0.35); color: rgba(255, 92, 92, 0.95); }
+    .status.ok   { border-color: rgba(46, 204, 113, 0.35); color: rgba(46, 204, 113, 0.95); }
+    .status.bad  { border-color: rgba(255, 92, 92, 0.35); color: rgba(255, 92, 92, 0.95); }
     .status.warn { border-color: rgba(255, 204, 102, 0.35); color: rgba(255, 204, 102, 0.95); }
 
     .btnRow {
@@ -144,11 +177,13 @@
       grid-template-columns: repeat(3, 1fr);
       gap: 10px;
     }
+
     .btnRow2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
+
     button, a.linkBtn {
       appearance: none;
       border: 1px solid var(--border);
@@ -166,6 +201,7 @@
       justify-content: center;
       align-items: center;
       gap: 8px;
+      min-height: 42px;
     }
     button:hover, a.linkBtn:hover { background: var(--btnHover); }
     button:active, a.linkBtn:active { transform: translateY(1px); }
@@ -174,22 +210,51 @@
       cursor: not-allowed;
     }
 
-    .small {
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.35;
+    @media (max-width: 600px) {
+      button, a.linkBtn {
+        padding: 9px 10px;
+        min-height: 40px;
+        border-radius: 12px;
+      }
+      .pill { font-size: 12px; padding: 7px 9px; }
+      .status { font-size: 13px; }
+      .sideCard { gap: 9px; }
     }
+
+    details {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.02);
+      overflow: hidden;
+    }
+
+    summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 10px 12px;
+      color: var(--muted);
+      font-weight: 650;
+      user-select: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+
+    .detailsBody {
+      padding: 10px 12px 12px 12px;
+      border-top: 1px solid var(--border);
+      display: grid;
+      gap: 8px;
+    }
+
     .mono {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
       font-size: 12px;
-      color: rgba(231, 238, 252, 0.85);
+      color: rgba(231, 238, 252, 0.88);
       word-break: break-word;
     }
 
-    .divider {
-      height: 1px;
-      background: var(--border);
-      margin: 2px 0;
+    .smallLabel {
+      font-size: 12px;
+      color: var(--muted);
     }
   </style>
 </head>
@@ -202,19 +267,19 @@
     </header>
 
     <section class="layout">
-      <div class="boardCard">
-        <div class="boardWrap">
+      <div class="card boardCard">
+        <div class="boardSizer">
           <div id="board" aria-label="Chessboard"></div>
         </div>
       </div>
 
-      <div class="sideCard">
+      <div class="card sideCard">
         <div class="row">
           <div class="pill">Current Streak: <strong id="streak">0</strong></div>
           <div class="pill">Status: <strong id="loading">Ready</strong></div>
         </div>
 
-        <div id="status" class="status">Click “Play Again” to start.</div>
+        <div id="status" class="status">Tap “Play Again” to start.</div>
 
         <div class="btnRow">
           <button id="btnWin"  type="button">Win</button>
@@ -227,12 +292,24 @@
           <a id="analyzeLink" class="linkBtn" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">Analyze on Lichess</a>
         </div>
 
-        <div class="divider"></div>
-
-        <div class="small">
-          FEN (for reference):
-          <div id="fen" class="mono">—</div>
-        </div>
+        <!-- Collapsible details so mobile stays compact -->
+        <details id="details">
+          <summary>Details</summary>
+          <div class="detailsBody">
+            <div>
+              <div class="smallLabel">Best move(s):</div>
+              <div id="bestMoves" class="mono">—</div>
+            </div>
+            <div>
+              <div class="smallLabel">DTZ:</div>
+              <div id="dtz" class="mono">—</div>
+            </div>
+            <div>
+              <div class="smallLabel">FEN:</div>
+              <div id="fen" class="mono">—</div>
+            </div>
+          </div>
+        </details>
       </div>
     </section>
   </div>
@@ -246,19 +323,15 @@
     // ----------------------------
     const TABLEBASE_URL = "https://tablebase.lichess.ovh/standard?fen=";
 
-    // "Interesting position" filters:
-    // - kings are within a few squares of the pawn
-    // - pawn isn't immediately capturable by the relevant king
-    // - avoid tablebase-trivial positions via a small DTZ threshold
     const GEN = {
       attempts: 30,
-      pawnColorBlackChance: 0.30, // mostly white-pawn scenarios, but some "vice versa"
+      pawnColorBlackChance: 0.30,
       pawnRankMin: 3,
       pawnRankMax: 6,
       kingNearMin: 1,
       kingNearMax: 4,
-      requireAtLeastOneKingVeryClose: 2, // at least one king within this Chebyshev distance of the pawn
-      trivialAbsDtzMax: 3 // reject positions with |dtz| <= this (often immediate/obvious)
+      requireAtLeastOneKingVeryClose: 2,
+      trivialAbsDtzMax: 3
     };
 
     // ----------------------------
@@ -269,6 +342,8 @@
       loading: document.getElementById("loading"),
       status: document.getElementById("status"),
       fen: document.getElementById("fen"),
+      dtz: document.getElementById("dtz"),
+      bestMoves: document.getElementById("bestMoves"),
       analyze: document.getElementById("analyzeLink"),
       btnWin: document.getElementById("btnWin"),
       btnDraw: document.getElementById("btnDraw"),
@@ -281,23 +356,23 @@
     // ----------------------------
     let streak = 0;
     let answered = false;
-    let currentFen = null;
+    let currentFen = null;     // full FEN (with "w - - 0 1")
     let currentTb = null;
 
     // Initialize board
     const board = new Chessboard(document.getElementById("board"), {
       assetsUrl: "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/assets/",
-      position: "8/8/8/8/8/8/8/8 w - - 0 1",
+      position: "8/8/8/8/8/8/8/8",
       orientation: COLOR.white,
       style: {
-        pieces: { file: "pieces/standard.svg" }, // Wikimedia standard (cburnett-style)
+        pieces: { file: "pieces/standard.svg" },
         borderType: BORDER_TYPE.frame
       },
       extensions: [{ class: Arrows }]
     });
 
     // ----------------------------
-    // Utilities (coords, squares)
+    // Utilities
     // ----------------------------
     const FILES = "abcdefgh";
 
@@ -307,26 +382,19 @@
     function choice(arr) { return arr[randInt(0, arr.length - 1)]; }
 
     function sqToXY(sq) {
-      return { x: FILES.indexOf(sq[0]), y: parseInt(sq[1], 10) - 1 }; // y: 0..7 for ranks 1..8
+      return { x: FILES.indexOf(sq[0]), y: parseInt(sq[1], 10) - 1 };
     }
     function xyToSq(x, y) {
       return FILES[x] + String(y + 1);
     }
-    function onBoard(x, y) {
-      return x >= 0 && x < 8 && y >= 0 && y < 8;
-    }
+    function onBoard(x, y) { return x >= 0 && x < 8 && y >= 0 && y < 8; }
     function chebDist(aSq, bSq) {
       const a = sqToXY(aSq), b = sqToXY(bSq);
       return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
     }
-    function kingsAdjacent(wk, bk) {
-      return chebDist(wk, bk) <= 1;
-    }
+    function kingsAdjacent(wk, bk) { return chebDist(wk, bk) <= 1; }
 
     function kingCanCapture(targetSq, kingSq, otherKingSq) {
-      // King capture is legal if:
-      // - target is adjacent (Chebyshev distance 1)
-      // - after moving onto target, kings are not adjacent
       if (chebDist(kingSq, targetSq) !== 1) return false;
       return chebDist(targetSq, otherKingSq) >= 2;
     }
@@ -349,13 +417,11 @@
     }
 
     function piecesToFen({ wk, bk, pawnSq, pawnColor }) {
-      // Build 8x8 empty, place pieces, then encode ranks 8->1
       const grid = Array.from({ length: 8 }, () => Array(8).fill(""));
       const place = (sq, ch) => {
         const { x, y } = sqToXY(sq);
         grid[y][x] = ch;
       };
-
       place(wk, "K");
       place(bk, "k");
       place(pawnSq, pawnColor === "w" ? "P" : "p");
@@ -366,9 +432,8 @@
         let s = "";
         for (let x = 0; x < 8; x++) {
           const ch = grid[y][x];
-          if (!ch) {
-            run++;
-          } else {
+          if (!ch) run++;
+          else {
             if (run > 0) { s += String(run); run = 0; }
             s += ch;
           }
@@ -376,16 +441,11 @@
         if (run > 0) s += String(run);
         ranks.push(s || "8");
       }
-
-      // Always White to move, no castling, no ep
       return `${ranks.join("/")} w - - 0 1`;
     }
 
-    // ----------------------------
-    // Lichess analyze link formatting
-    // ----------------------------
+    // Lichess analysis URL expects underscores instead of spaces
     function lichessFenPath(fen) {
-      // Lichess expects FEN with spaces replaced by underscores; slashes must remain as-is.
       return fen.trim().replace(/\s+/g, "_");
     }
 
@@ -397,9 +457,6 @@
       el.analyze.style.opacity = fen ? "1" : "0.55";
     }
 
-    // ----------------------------
-    // Tablebase
-    // ----------------------------
     async function fetchTablebase(fen) {
       const url = TABLEBASE_URL + encodeURIComponent(fen);
       const res = await fetch(url);
@@ -410,42 +467,29 @@
       return await res.json();
     }
 
-    // IMPORTANT:
-    // tb.category is for the SIDE TO MOVE (here: White, because we always query "w").
-    // BUT tb.moves[].category is for the resulting position, i.e. the SIDE TO MOVE AFTER THE MOVE (here: Black).
-    // Therefore, when selecting best moves for White, we must invert the move category.
-    function stmValue(cat) {
-      // Value for SIDE-TO-MOVE in that position
-      if (cat === "win") return 1;
-      if (cat === "draw") return 0;
-      return -1; // "loss"
+    // Categories can be "win", "syzygy-win", "cursed-win", ... / draw / ...loss
+    function coarseWDL(cat) {
+      const s = String(cat || "").toLowerCase();
+      if (s.includes("win")) return "win";
+      if (s.includes("loss")) return "loss";
+      if (s.includes("draw")) return "draw";
+      return "unknown";
     }
 
-    function bestMovesFromTb(tbJson) {
-      const moves = Array.isArray(tbJson?.moves) ? tbJson.moves : [];
-      if (!moves.length) return [];
+    function invertWDL(wdl) {
+      if (wdl === "win") return "loss";
+      if (wdl === "loss") return "win";
+      return wdl; // draw/unknown
+    }
 
-      // For each White move, the resulting position is Black-to-move.
-      // If Black-to-move is "loss", that's best for White (White "win").
-      let bestScore = -999;
-
-      for (const m of moves) {
-        const blackScore = stmValue(m.category); // category for Black to move
-        const whiteScore = -blackScore;          // invert to White's perspective
-        if (whiteScore > bestScore) bestScore = whiteScore;
-      }
-
-      return moves
-        .filter(m => (-stmValue(m.category)) === bestScore)
-        .map(m => ({
-          uci: m.uci,
-          san: m.san,
-          category: m.category
-        }));
+    function prettyOutcome(wdl) {
+      if (wdl === "win") return "Win (White)";
+      if (wdl === "draw") return "Draw";
+      if (wdl === "loss") return "Loss (White)";
+      return "Unknown";
     }
 
     function uciToArrow(uci) {
-      // UCI can be like "e2e4" or "a7a8q" (promotion). We only need from/to squares.
       if (typeof uci !== "string" || uci.length < 4) return null;
       const from = uci.slice(0, 2);
       const to = uci.slice(2, 4);
@@ -454,10 +498,47 @@
       return { from, to };
     }
 
-    function prettyOutcome(cat) {
-      if (cat === "win") return "Win (White)";
-      if (cat === "draw") return "Draw";
-      return "Loss (White)";
+    function clearArrows() {
+      if (typeof board.removeArrows === "function") board.removeArrows();
+    }
+
+    function drawBestMoveArrows(bestMoves) {
+      clearArrows();
+      for (const m of bestMoves) {
+        const arrow = uciToArrow(m.uci);
+        if (!arrow) continue;
+        board.addArrow(ARROW_TYPE.default, arrow.from, arrow.to);
+      }
+    }
+
+    // Best moves:
+    // Lichess tablebase API states moves are "best first".
+    // Each move.category is for the SIDE TO MOVE AFTER THE MOVE (i.e., Black here).
+    // We pick all moves that tie with the first move under White's POV and DTZ.
+    function bestMovesFromTb(tbJson) {
+      const moves = Array.isArray(tbJson?.moves) ? tbJson.moves : [];
+      if (!moves.length) return [];
+
+      const top = moves[0];
+      const topBlackWdl = coarseWDL(top.category);
+      const topWhiteWdl = invertWDL(topBlackWdl);
+
+      const topDtzRaw = (typeof top.precise_dtz === "number") ? top.precise_dtz
+                    : (typeof top.dtz === "number") ? top.dtz
+                    : null;
+      const topWhiteDtz = (topDtzRaw === null) ? null : -topDtzRaw;
+
+      return moves
+        .map(m => {
+          const blackWdl = coarseWDL(m.category);
+          const whiteWdl = invertWDL(blackWdl);
+          const dtzRaw = (typeof m.precise_dtz === "number") ? m.precise_dtz
+                       : (typeof m.dtz === "number") ? m.dtz
+                       : null;
+          const whiteDtz = (dtzRaw === null) ? null : -dtzRaw;
+          return { uci: m.uci, san: m.san, whiteWdl, whiteDtz };
+        })
+        .filter(m => m.whiteWdl === topWhiteWdl && m.whiteDtz === topWhiteDtz);
     }
 
     // ----------------------------
@@ -485,21 +566,14 @@
       el.streak.textContent = String(streak);
     }
 
-    function clearArrows() {
-      if (typeof board.removeArrows === "function") board.removeArrows();
-    }
-
-    function drawBestMoveArrows(bestMoves) {
-      clearArrows();
-      for (const m of bestMoves) {
-        const arrow = uciToArrow(m.uci);
-        if (!arrow) continue;
-        board.addArrow(ARROW_TYPE.default, arrow.from, arrow.to);
-      }
+    function setDetails({ fen, dtz, bestMovesSAN }) {
+      el.fen.textContent = fen || "—";
+      el.dtz.textContent = (dtz === null || dtz === undefined) ? "—" : String(dtz);
+      el.bestMoves.textContent = bestMovesSAN || "—";
     }
 
     // ----------------------------
-    // Position generation (heuristics + tablebase filtering)
+    // Position generation
     // ----------------------------
     function generateCandidatePosition() {
       const pawnColor = Math.random() < GEN.pawnColorBlackChance ? "b" : "w";
@@ -544,7 +618,6 @@
 
         try {
           const tb = await fetchTablebase(cand.fen);
-
           if (tb?.checkmate || tb?.stalemate) continue;
 
           if (typeof tb?.dtz === "number" && Math.abs(tb.dtz) <= GEN.trivialAbsDtzMax) {
@@ -583,22 +656,31 @@
       currentTb = null;
       clearArrows();
 
+      setDetails({ fen: "—", dtz: "—", bestMovesSAN: "—" });
+      setAnalyzeLink(null);
+
       setStatus("warn", "Generating a new position and querying the Lichess tablebase…");
       setLoading("Loading…", true);
-      el.fen.textContent = "—";
-      setAnalyzeLink(null);
 
       try {
         const { fen, tb } = await generateInterestingPosition();
         currentFen = fen;
         currentTb = tb;
 
-        // Update board and UI
-        await board.setPosition(fen);
-        el.fen.textContent = fen;
+        // cm-chessboard is happiest with piece-placement only
+        const placement = fen.split(" ")[0];
+        await board.setPosition(placement);
+
         setAnalyzeLink(fen);
 
-        setStatus(null, "What is the theoretical result for White?\nClick Win / Draw / Loss.");
+        const rootWdl = coarseWDL(tb.category); // for side to move (White)
+        const dtz = (typeof tb.precise_dtz === "number") ? tb.precise_dtz
+                 : (typeof tb.dtz === "number") ? tb.dtz
+                 : null;
+
+        setDetails({ fen, dtz, bestMovesSAN: "—" });
+
+        setStatus(null, "What is the theoretical result for White?\nTap Win / Draw / Loss.");
         setLoading("Ready", false);
       } catch (err) {
         setLoading("Error", false);
@@ -608,31 +690,29 @@
 
     function answer(userPick) {
       if (!currentTb || answered) return;
-
       answered = true;
       setGuessEnabled(false);
 
-      // tb.category is for side to move (White). This part is correct.
-      const correct = currentTb.category; // "win" | "draw" | "loss" for White-to-move
-      const ok = userPick === correct;
+      const correctWdl = coarseWDL(currentTb.category); // White to move
+      const ok = userPick === correctWdl;
 
-      if (ok) {
-        streak += 1;
-      } else {
-        streak = 0;
-      }
+      streak = ok ? (streak + 1) : 0;
       updateStreakDisplay();
 
       const best = bestMovesFromTb(currentTb);
       drawBestMoveArrows(best);
 
       const bestSAN = best.map(m => m.san).join(", ") || "—";
-      const dtzText = (typeof currentTb.dtz === "number") ? `\nDTZ: ${currentTb.dtz}` : "";
+      const dtz = (typeof currentTb.precise_dtz === "number") ? currentTb.precise_dtz
+               : (typeof currentTb.dtz === "number") ? currentTb.dtz
+               : null;
+
+      setDetails({ fen: currentFen, dtz, bestMovesSAN: bestSAN });
 
       if (ok) {
-        setStatus("ok", `Correct.\nOutcome: ${prettyOutcome(correct)}\nBest move(s): ${bestSAN}${dtzText}`);
+        setStatus("ok", `Correct.\nOutcome: ${prettyOutcome(correctWdl)}`);
       } else {
-        setStatus("bad", `Incorrect.\nCorrect outcome: ${prettyOutcome(correct)}\nBest move(s): ${bestSAN}${dtzText}`);
+        setStatus("bad", `Incorrect.\nCorrect outcome: ${prettyOutcome(correctWdl)}`);
       }
     }
 
