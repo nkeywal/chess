@@ -735,27 +735,20 @@
         const moves = Array.isArray(tbData?.moves) ? tbData.moves : [];
         if (!moves.length) return;
 
-        const bestWdl = tbData.wdl;
-
         for (const m of moves) {
             const arrow = uciToArrow(m.uci);
             if (!arrow) continue;
             
-            const moveWdl = categoryToWdl(m.category);
-            if (moveWdl === null) continue;
+            const baseWdl = categoryToWdl(m.category); // Raw WDL from category
+            if (baseWdl === null) continue;
+
+            // Invert the WDL to match user's observed colors (winning moves appearing red, losing moves appearing green).
+            const moveWdl = -baseWdl; 
 
             let arrowType = null;
-            if (bestWdl === 2) { // Winning position
-                if (moveWdl === 2) arrowType = ARROW_WIN;
-                else arrowType = ARROW_LOSS; // Blunder
-            } else if (bestWdl === 0) { // Drawing position
-                if (moveWdl === 0) arrowType = ARROW_DRAW;
-                else if (moveWdl === -2) arrowType = ARROW_LOSS; // Blunder
-                // (moveWdl === 2 is not possible from a draw)
-            } else if (bestWdl === -2) { // Losing position
-                if (moveWdl === 0) arrowType = ARROW_WIN; // Good save!
-                else if (moveWdl === -2) arrowType = ARROW_LOSS;
-            }
+            if (moveWdl === 2) arrowType = ARROW_WIN;
+            else if (moveWdl === 0) arrowType = ARROW_DRAW;
+            else if (moveWdl === -2) arrowType = ARROW_LOSS;
 
             if (arrowType) {
                 board.addArrow(arrowType, arrow.from, arrow.to);
