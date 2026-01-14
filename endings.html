@@ -709,7 +709,384 @@
         }
     }
 
+    // --- Generation & Validation Logic ---
+
+    async function generateValidPosition() {
+        // 1. Determine Piece Composition from UI
+        let { w, b } = getSelectedPieces();
+        
+        // Ensure Kings
+        if(!w.includes('K')) w.push('K');
+        if(!b.includes('K')) b.push('K');
+
+        // 2. Identify Scenario
+        const allPieces = [...w, ...b].map(p => p.toUpperCase()).sort().join('');
+        let scenario = null;
+        if (allPieces === "KKPR") {
+            scenario = "KR_KP";
+        }
+
+        let attempts = 0;
+        const MAX_ATTEMPTS = 2000;
+
+        while (attempts < MAX_ATTEMPTS) {
+            attempts++;
+            
+            // --- Step 1: Generation ---
+            let fen;
+            let pWhite = [...w], pBlack = [...b];
+
+            // 2.1 Attribution des camps (Specific KR_KP)
+            if (scenario === "KR_KP") {
+                if (Math.random() < 0.5) {
+                    pWhite = ['K', 'R'];
+                    pBlack = ['K', 'P'];
+                } else {
+                    pWhite = ['K', 'P'];
+                    pBlack = ['K', 'R'];
+                }
+            }
+
+            fen = randomPlacement(pWhite, pBlack);
+            const ch = new Chess();
+            try {
+                ch.load(fen);
+            } catch (e) { continue; }
+
+            // --- Step 2: Generic Pre-TB Validation ---
+            if (!validateGenericPreTB(ch)) continue;
+
+            // --- Step 3: Specific Pre-TB Validation ---
+            if (scenario === "KR_KP") {
+                if (!validateSpecificPreTB_KR_KP(ch)) continue;
+            }
+
+            // --- Step 4: Tablebase Fetch ---
+            let tbData;
+            try {
+                tbData = await fetchTablebase(fen);
+            } catch (e) { continue; }
+
+            // --- Step 5: Generic Post-TB Validation ---
+            if (!validateGenericPostTB(ch, tbData)) continue;
+
+            // --- Step 6: Specific Post-TB Validation ---
+            if (scenario === "KR_KP") {
+                if (!validateSpecificPostTB_KR_KP(ch, tbData)) continue;
+            }
+
+            return fen;
+        }
+
+        throw new Error("Could not generate a valid position after " + MAX_ATTEMPTS + " attempts.");
+    }
+
+    // --- Layer 1: Spec — règles génériques (universelles) ---
+
+    function validateGenericPreTB(ch) {
+        // 1.1 Légalité
+        if (ch.turn() !== 'w') return false; 
+        
+        const board = ch.board();
+        for (let c = 0; c < 8; c++) {
+            if (board[0][c] && board[0][c].type === 'p') return false;
+            if (board[7][c] && board[7][c].type === 'p') return false;
+        }
+
+        // White in check?
+        if (ch.inCheck()) return false; 
+        
+        // Black in check? (Flip turn)
+        const fenParts = ch.fen().split(' ');
+        fenParts[1] = 'b';
+        const chB = new Chess();
+        try {
+            chB.load(fenParts.join(' '));
+            if (chB.inCheck()) return false;
+        } catch(e) { return false; }
+
+        // 1.2 Contraintes structurelles
+        const pieces = getPieceLocations(ch);
+        const wKing = pieces.find(p => p.type === 'k' && p.color === 'w');
+        const bKing = pieces.find(p => p.type === 'k' && p.color === 'b');
+        if (!wKing || !bKing) return false;
+
+        // kingDist > 6
+        const kDist = getChebyshevDistance(wKing.square, bKing.square);
+        if (kDist > 6) return false;
+
+        // bboxArea > 36
+        const bbox = getBoundingBoxArea(pieces);
+        if (bbox > 36) return false;
+
+        // mobilityW < 4
+        const mobW = ch.moves().length;
+        if (mobW < 4) return false;
+
+        // mobilityB < 3
+        const mobB = chB.moves().length;
+        if (mobB < 3) return false;
+
+        return true;
+    }
+
+    function validateGenericPostTB(ch, data) {
+        // 1.3 Contraintes tablebase minimales
+        
+        const moves = data.moves || [];
+        if (moves.length === 0) return false;
+        if (typeof data.wdl !== 'number') return false;
+
+        // Trivialité immédiate
+        // si dtz présent : abs(dtz) < 4
+        if (data.dtz !== undefined && data.dtz !== null) {
+            if (Math.abs(data.dtz) < 4) return false;
+        } 
+        // sinon si dtm présent : abs(dtm) < 6
+        else if (data.dtm !== undefined && data.dtm !== null) {
+            if (Math.abs(data.dtm) < 6) return false;
+        } 
+        // sinon rejeter
+        else {
+            return false;
+        }
+
+        // AUCUNE autre contrainte générique ici
+        return true;
+    }
+
+    // --- Layer 2: Spec — règles spécifiques K+R vs K+P ---
+
+    function validateSpecificPreTB_KR_KP(ch) {
+        // 2.2 Contraintes de placement
+        const pieces = getPieceLocations(ch);
+        const pPawn = pieces.find(p => p.type === 'p');
+        const pRook = pieces.find(p => p.type === 'r');
+        const pKingP = pieces.find(p => p.type === 'k' && p.color === pPawn.color);
+        const pKingR = pieces.find(p => p.type === 'k' && p.color === pRook.color);
+
+        if (!pPawn || !pRook || !pKingP || !pKingR) return false;
+
+        const pRank = getRank(pPawn.square); 
+
+        // Rang de P
+        if (pPawn.color === 'w') {
+            if (pRank !== 6 && pRank !== 7) return false;
+        } else {
+            if (pRank !== 2 && pRank !== 3) return false;
+        }
+
+        // dist(Kp, P)
+        const dKpP = getChebyshevDistance(pKingP.square, pPawn.square);
+        const isCloseRank = (pPawn.color === 'w' && pRank === 7) || (pPawn.color === 'b' && pRank === 2);
+        
+        if (isCloseRank) {
+            if (dKpP > 1) return false;
+        } else {
+            if (dKpP > 2) return false;
+        }
+
+        // dist(Kr, P)
+        const dKrP = getChebyshevDistance(pKingR.square, pPawn.square);
+        if (dKrP < 3 || dKrP > 6) return false;
+
+        // Capture immédiate interdite
+        const rookSide = pRook.color;
+        if (ch.turn() === rookSide) {
+             const moves = ch.moves({ verbose: true });
+             if (moves.some(m => m.captured === 'p')) return false;
+        }
+
+        // Promotion immédiate interdite
+        const pawnSide = pPawn.color;
+        if (ch.turn() === pawnSide) {
+             const moves = ch.moves({ verbose: true });
+             if (moves.some(m => m.promotion)) return false;
+        }
+
+        return true;
+    }
+
+    function validateSpecificPostTB_KR_KP(ch, data) {
+        // 2.3 Contraintes tablebase (spécifiques)
+
+        // Anti-trivialité renforcée
+        if (data.dtz !== undefined && data.dtz !== null) {
+            if (Math.abs(data.dtz) < 8) return false;
+        } else if (data.dtm !== undefined && data.dtm !== null) {
+            if (Math.abs(data.dtm) < 10) return false;
+        } else {
+            return false;
+        }
+
+        const rootWdl = data.wdl;
+        const moves = data.moves || [];
+
+        // preservingMoves <= 2 (Note: Spec says "> 2" reject => so <= 2 OK)
+        // Wait, spec said "preservingMoves > 2" -> reject.
+        // My previous code used strict "=== 1" for narrow path. 
+        // The new spec is: "Reject if preservingMoves > 2".
+        
+        const preservingMoves = moves.filter(m => {
+            const mWdl = -categoryToWdl(m.category);
+            return mWdl === rootWdl;
+        });
+
+        if (preservingMoves.length > 2) return false;
+
+        // il n’existe aucun coup m tel que O(m) < O(root) (WIN > DRAW > LOSS)
+        // => Reject if trap does NOT exist.
+        // Trap exists if ANY move has mWdl < rootWdl.
+        
+        const trapExists = moves.some(m => {
+            const mWdl = -categoryToWdl(m.category);
+            return mWdl < rootWdl;
+        });
+        if (!trapExists) return false;
+
+        // le meilleur coup moves[0] est une promotion
+        const bestMove = moves[0];
+        if (bestMove.promotion) return false; 
+        // Note: TB response doesn't always have 'promotion' field in 'moves' object directly like chess.js
+        // usually it's in UCI string e.g. "a7a8q". Check UCI.
+        if (bestMove.uci.length > 4) return false;
+
+        return true;
+    }
+
+
     // --- Helpers ---
+
+    function randomPlacement(wPieces, bPieces) {
+        const files = "abcdefgh";
+        const used = new Set();
+        const getSq = () => files[Math.floor(Math.random()*8)] + (Math.floor(Math.random()*8)+1);
+        
+        let list = [
+            ...wPieces.map(t => ({t: t.toLowerCase(), c: 'w'})),
+            ...bPieces.map(t => ({t: t.toLowerCase(), c: 'b'}))
+        ];
+
+        const board = [];
+        
+        for(let p of list) {
+             let sq;
+             let tries = 0;
+             while(tries < 100) {
+                 sq = getSq();
+                 if(!used.has(sq)) {
+                     // Basic Pawn constraints (no Rank 1 or 8)
+                     // Although validateGenericPre checks this, doing it here saves iterations
+                     if (p.t === 'p') {
+                         if (sq[1] === '1' || sq[1] === '8') { tries++; continue; }
+                     }
+                     break;
+                 }
+                 tries++;
+             }
+             if(sq) {
+                 used.add(sq);
+                 board.push({sq, ...p});
+             }
+        }
+        
+        // Build FEN
+        const grid = Array(8).fill(null).map(() => Array(8).fill(""));
+        board.forEach(p => {
+            const f = files.indexOf(p.sq[0]);
+            const r = 8 - parseInt(p.sq[1]);
+            grid[r][f] = (p.c === 'w') ? p.t.toUpperCase() : p.t.toLowerCase();
+        });
+        
+        let fenRows = grid.map(row => {
+            let empty = 0;
+            let str = "";
+            row.forEach(c => {
+                if (c === "") empty++;
+                else {
+                    if (empty > 0) str += empty;
+                    empty = 0;
+                    str += c;
+                }
+            });
+            if (empty > 0) str += empty;
+            return str;
+        });
+        
+        return fenRows.join("/") + " w - - 0 1";
+    }
+
+    function getPieceLocations(ch) {
+        const pieces = [];
+        const board = ch.board();
+        const files = "abcdefgh";
+        for (let r=0; r<8; r++) {
+            for (let c=0; c<8; c++) {
+                if (board[r][c]) {
+                    const sq = files[c] + (8-r);
+                    pieces.push({ ...board[r][c], square: sq, r: 8-r, f: c+1 }); // r: 1-8, f: 1-8
+                }
+            }
+        }
+        return pieces;
+    }
+
+    function getChebyshevDistance(sq1, sq2) {
+        const f1 = sq1.charCodeAt(0);
+        const r1 = parseInt(sq1[1]);
+        const f2 = sq2.charCodeAt(0);
+        const r2 = parseInt(sq2[1]);
+        return Math.max(Math.abs(f1 - f2), Math.abs(r1 - r2));
+    }
+
+    function getBoundingBoxArea(pieces) {
+        if (pieces.length === 0) return 0;
+        let minR = 9, maxR = 0, minF = 9, maxF = 0;
+        pieces.forEach(p => {
+            if (p.r < minR) minR = p.r;
+            if (p.r > maxR) maxR = p.r;
+            if (p.f < minF) minF = p.f;
+            if (p.f > maxF) maxF = p.f;
+        });
+        const w = (maxF - minF + 1);
+        const h = (maxR - minR + 1);
+        return w * h;
+    }
+
+    function getRank(sq) {
+        return parseInt(sq[1]);
+    }
+
+    function isCaptureOrPromotion(ch, uci) {
+        const from = uci.slice(0, 2);
+        const to = uci.slice(2, 4);
+        const promo = uci.length > 4;
+        if (promo) return true;
+        
+        const piece = ch.get(to);
+        if (piece) return true; // Capture
+        
+        // En passant?
+        if (ch.get(from).type === 'p' && from[0] !== to[0] && !piece) return true;
+        
+        return false;
+    }
+
+    function isNaturalMove(ch, uci) {
+        // Natural = Capture OR Promotion OR Check
+        if (isCaptureOrPromotion(ch, uci)) return true;
+        
+        // Check?
+        // We need to see if the move gives check.
+        // Expensive way: make move, check inCheck, undo.
+        // Efficient way: check SAN from move generation or just do it.
+        const temp = new Chess(ch.fen());
+        const m = temp.move({ from: uci.slice(0,2), to: uci.slice(2,4), promotion: uci.slice(4) || undefined });
+        if (m && m.san.includes('+')) return true;
+
+        return false;
+    }
+
     function clearArrows() {
         if (typeof board.removeArrows === "function") board.removeArrows();
     }
@@ -760,154 +1137,6 @@
         const w = Array.from(document.querySelectorAll('input[name="white-pieces"]:checked')).map(c=>c.value);
         const b = Array.from(document.querySelectorAll('input[name="black-pieces"]:checked')).map(c=>c.value);
         return { w, b };
-    }
-
-    async function generateValidPosition() {
-        const { w, b } = getSelectedPieces();
-        // Ensure Kings
-        if(!w.includes('K')) w.push('K');
-        if(!b.includes('K')) b.push('K');
-        
-        let bestFen = null;
-        let attempts = 0;
-        
-        // We will generate multiple candidates and keep the first "locally interesting" one
-        // to minimize API calls. If we fail to find one, we just take a valid random one.
-        
-        while (attempts < 500) {
-            attempts++;
-            const fen = randomPlacement(w, b);
-            
-            // 1. Basic Validity (Chess rules)
-            const ch = new Chess();
-            try {
-                ch.load(fen);
-                if (ch.isGameOver()) continue; 
-            } catch(e) { continue; }
-
-            // 2. Opponent Check (Illegal for White to move)
-            try {
-                const chB = new Chess(fen.replace(' w ', ' b '));
-                if (chB.inCheck()) continue;
-            } catch(e) { continue; }
-
-            // 3. Local Heuristics (Is it interesting?)
-            if (!isInterestingLocal(ch)) continue;
-
-            // 4. API Validation (The expensive check)
-            try {
-                const data = await fetchTablebase(fen);
-                // Check triviality
-                // If Mate in <= 2 (dtm <= 4 half-moves), skip
-                if (data.wdl !== 0 && data.dtm !== null && Math.abs(data.dtm) <= 4) continue; 
-                
-                // If all good, return this one
-                return fen;
-            } catch(e) { continue; }
-        }
-        
-        // Fallback if we couldn't find a "perfect" one
-        return "k7/8/8/8/8/8/8/K7 w - - 0 1"; 
-    }
-
-    function isInterestingLocal(ch) {
-        const moves = ch.moves({ verbose: true });
-        
-        // 1. Avoid Mate in 1 (too trivial)
-        for (const m of moves) {
-            if (m.san.includes('#')) return false;
-            
-            // 2. Avoid immediate capture of non-pawn pieces (hanging pieces)
-            // This enforces "no obvious move" (taking a free piece)
-            if (m.captured && m.captured !== 'p') return false;
-        }
-        
-        // 3. Avoid immediate promotion
-        const board = ch.board();
-        for (let r=0; r<8; r++) {
-            for (let c=0; c<8; c++) {
-                const p = board[r][c];
-                if (p && p.type === 'p') {
-                    if (p.color === 'w' && r === 1) return false; // Rank 7
-                    if (p.color === 'b' && r === 6) return false; // Rank 2
-                }
-            }
-        }
-
-        return true;
-    }
-
-    function randomPlacement(wPieces, bPieces) {
-        const files = "abcdefgh";
-        const used = new Set();
-        const getSq = () => files[Math.floor(Math.random()*8)] + (Math.floor(Math.random()*8)+1);
-        
-        let list = [
-            ...wPieces.map(t => ({t: t.toLowerCase(), c: 'w'})),
-            ...bPieces.map(t => ({t: t.toLowerCase(), c: 'b'}))
-        ];
-        
-        // Limit to 7
-        if (list.length > 7) {
-             // Keep Kings
-             const kings = list.filter(p => p.t === 'k');
-             const others = list.filter(p => p.t !== 'k');
-             others.sort(() => 0.5 - Math.random());
-             list = [...kings, ...others.slice(0, 7 - kings.length)];
-        }
-
-        const board = [];
-        
-        // Place Kings first to ensure
-        const kings = list.filter(p => p.t === 'k');
-        const others = list.filter(p => p.t !== 'k');
-        
-        for(let p of [...kings, ...others]) {
-             let sq;
-             let tries = 0;
-             while(tries < 100) {
-                 sq = getSq();
-                 if(!used.has(sq)) {
-                     // Pawn constraints
-                     if (p.t === 'p') {
-                         if (sq[1] === '1' || sq[1] === '8') { tries++; continue; }
-                     }
-                     // Kings touching check? Hard to do on partial board easily without distance check
-                     // We rely on 'attempts' loop in generateValidPosition to filter bad placements
-                     break;
-                 }
-                 tries++;
-             }
-             if(sq) {
-                 used.add(sq);
-                 board.push({sq, ...p});
-             }
-        }
-        
-        // Build FEN
-        const grid = Array(8).fill(null).map(() => Array(8).fill(""));
-        board.forEach(p => {
-            const f = files.indexOf(p.sq[0]);
-            const r = 8 - parseInt(p.sq[1]);
-            grid[r][f] = (p.c === 'w') ? p.t.toUpperCase() : p.t.toLowerCase();
-        });
-        
-        let fenRows = grid.map(row => {
-            let empty = 0;
-            let str = "";
-            row.forEach(c => {
-                if (c === "") empty++;
-                else {
-                    if (empty > 0) str += empty;
-                    empty = 0;
-                    str += c;
-                }
-            });
-            if (empty > 0) str += empty;
-            return str;
-        });
-        
-        return fenRows.join("/") + " w - - 0 1";
     }
 
     async function fetchTablebase(fen) {
