@@ -265,6 +265,11 @@
         stroke-width: 0;
     }
 
+    /* Fix mobile vertical jump by overriding body alignment at the end of cascade */
+    @media (max-width: 900px) {
+      body { place-items: start center; }
+    }
+
   </style>
 </head>
 
