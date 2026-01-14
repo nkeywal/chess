@@ -398,7 +398,7 @@
     el.btnPlayAgain.addEventListener("click", startNewGame);
 
     function selectSquare(sq) {
-        board.removeMarkers(undefined, MARKER_SELECTED);
+        board.removeMarkers(MARKER_SELECTED);
         selectedSquare = sq;
         if (selectedSquare) {
             board.addMarker(MARKER_SELECTED, selectedSquare);
