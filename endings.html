@@ -734,20 +734,13 @@
             
             // --- Step 1: Generation ---
             let fen;
-            let pWhite = [...w], pBlack = [...b];
 
-            // 2.1 Attribution des camps (Specific KR_KP)
             if (scenario === "KR_KP") {
-                if (Math.random() < 0.5) {
-                    pWhite = ['K', 'R'];
-                    pBlack = ['K', 'P'];
-                } else {
-                    pWhite = ['K', 'P'];
-                    pBlack = ['K', 'R'];
-                }
+                fen = randomPlacement_KR_KP(); // Specialized placement
+            } else {
+                fen = randomPlacement(w, b); // Generic placement
             }
-
-            fen = randomPlacement(pWhite, pBlack);
+            
             const ch = new Chess();
             try {
                 ch.load(fen);
@@ -780,6 +773,171 @@
 
         throw new Error("Could not generate a valid position after " + MAX_ATTEMPTS + " attempts.");
     }
+
+    // --- Specialized Placement for KR vs KP ---
+    function randomPlacement_KR_KP() {
+        const files = "abcdefgh";
+        const grid = Array(8).fill(null).map(() => Array(8).fill(""));
+        const used = new Set();
+        
+        // 1. Assign sides (Schema A vs B)
+        // Schema A: White = K+R, Black = K+P
+        // Schema B: White = K+P, Black = K+R
+        const isSchemaA = Math.random() < 0.5;
+        
+        const pawnColor = isSchemaA ? 'b' : 'w';
+        const rookColor = isSchemaA ? 'w' : 'b';
+        const kpColor = pawnColor;
+        const krColor = rookColor;
+
+        // 2. Place Pawn
+        // If White: rank 6 or 7 (index 1 or 2) -> (Note: my internal grid logic uses rank 0-7 where 0=Rank8. Wait, standard is 0=Rank8? usually 0=a8 in simple array)
+        // Let's use (fileIndex, rankIndex) where rankIndex 0=Rank1, 7=Rank8 for logic, then map to grid.
+        // Grid mapping in original randomPlacement: r = 8 - parseInt(sq[1]) => sq='a1' -> r=7.
+        // So grid[0] is Rank 8. grid[7] is Rank 1.
+        
+        // P White (rank 6,7) => grid rows 2 (Rank 6), 1 (Rank 7).
+        // P Black (rank 2,3) => grid rows 6 (Rank 2), 5 (Rank 3).
+        
+        let pRank, pFile;
+        if (pawnColor === 'w') {
+            pRank = Math.random() < 0.5 ? 6 : 7; // logical rank 1-8
+        } else {
+            pRank = Math.random() < 0.5 ? 2 : 3;
+        }
+        pFile = Math.floor(Math.random() * 8); // 0-7 (a-h)
+        
+        const pSq = files[pFile] + pRank;
+        used.add(pSq);
+        grid[8 - pRank][pFile] = (pawnColor === 'w' ? 'P' : 'p');
+
+        // 3. Place Kp (Pawn's King)
+        // If P is close to promo (W:7, B:2) => dist <= 1. Else <= 2.
+        const isClose = (pawnColor === 'w' && pRank === 7) || (pawnColor === 'b' && pRank === 2);
+        const maxDistKp = isClose ? 1 : 2;
+        
+        const kpSq = getRandomSquareNear(pFile, pRank, maxDistKp, used);
+        if (!kpSq) return randomPlacement_KR_KP(); // Retry
+        used.add(kpSq.sq);
+        grid[8 - kpSq.r][kpSq.f] = (kpColor === 'w' ? 'K' : 'k');
+
+        // 4. Place Kr (Rook's King)
+        // 3 <= dist(Kr, P) <= 6
+        const krSq = getRandomSquareRing(pFile, pRank, 3, 6, used);
+        if (!krSq) return randomPlacement_KR_KP(); // Retry
+        used.add(krSq.sq);
+        grid[8 - krSq.r][krSq.f] = (krColor === 'w' ? 'K' : 'k');
+
+        // 5. Place Rook
+        // Must not cap P immediately. Must not check Kp immediately.
+        // We iterate free squares and pick one valid.
+        const validRookSqs = [];
+        
+        for(let r=1; r<=8; r++) {
+            for(let f=0; f<8; f++) {
+                const sq = files[f] + r;
+                if (used.has(sq)) continue;
+                
+                // Check 1: No immediate capture of P (same rank or file, no pieces in between)
+                // Since only Kings are on board, we check if K blocks.
+                // Simplified: if same rank/file, check if K is between.
+                let canCapture = false;
+                if (r === pRank) { // Same rank
+                    // Check file path
+                    const minF = Math.min(f, pFile);
+                    const maxF = Math.max(f, pFile);
+                    // Check if any king is between
+                    // (Actually only Kp and Kr are obstacles)
+                    const obs = [kpSq, krSq].some(k => k.r === r && k.f > minF && k.f < maxF);
+                    if (!obs) canCapture = true;
+                } else if (f === pFile) { // Same file
+                    const minR = Math.min(r, pRank);
+                    const maxR = Math.max(r, pRank);
+                    const obs = [kpSq, krSq].some(k => k.f === f && k.r > minR && k.r < maxR);
+                    if (!obs) canCapture = true;
+                }
+                
+                if (canCapture) continue;
+
+                // Check 2: No immediate check to Kp (Rook side vs Pawn King)
+                // Kp is enemy of R.
+                let givesCheck = false;
+                if (r === kpSq.r) {
+                     const minF = Math.min(f, kpSq.f);
+                     const maxF = Math.max(f, kpSq.f);
+                     const obs = [pSq, krSq].some(x => x.r === r && x.f > minF && x.f < maxF); // P is obstacle too
+                     if (!obs) givesCheck = true;
+                } else if (f === kpSq.f) {
+                     const minR = Math.min(r, kpSq.r);
+                     const maxR = Math.max(r, kpSq.r);
+                     const obs = [pSq, krSq].some(x => x.f === f && x.r > minR && x.r < maxR);
+                     if (!obs) givesCheck = true;
+                }
+                
+                if (givesCheck) continue;
+
+                validRookSqs.push({r, f, sq});
+            }
+        }
+        
+        if (validRookSqs.length === 0) return randomPlacement_KR_KP(); // Retry
+
+        const rPlace = validRookSqs[Math.floor(Math.random() * validRookSqs.length)];
+        grid[8 - rPlace.r][rPlace.f] = (rookColor === 'w' ? 'R' : 'r');
+
+        // Build FEN
+        // (Same logic as generic)
+        let fenRows = grid.map(row => {
+            let empty = 0;
+            let str = "";
+            row.forEach(c => {
+                if (c === "") empty++;
+                else {
+                    if (empty > 0) str += empty;
+                    empty = 0;
+                    str += c;
+                }
+            });
+            if (empty > 0) str += empty;
+            return str;
+        });
+        
+        return fenRows.join("/") + " w - - 0 1";
+    }
+
+    // Helper for specialized placement
+    function getRandomSquareNear(cenF, cenR, maxDist, usedSet) {
+        const candidates = [];
+        const files = "abcdefgh";
+        for (let r=1; r<=8; r++) {
+            for (let f=0; f<8; f++) {
+                const dist = Math.max(Math.abs(r - cenR), Math.abs(f - cenF));
+                if (dist > 0 && dist <= maxDist) {
+                    const sq = files[f] + r;
+                    if (!usedSet.has(sq)) candidates.push({r, f, sq});
+                }
+            }
+        }
+        if (!candidates.length) return null;
+        return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+
+    function getRandomSquareRing(cenF, cenR, minDist, maxDist, usedSet) {
+        const candidates = [];
+        const files = "abcdefgh";
+        for (let r=1; r<=8; r++) {
+            for (let f=0; f<8; f++) {
+                const dist = Math.max(Math.abs(r - cenR), Math.abs(f - cenF));
+                if (dist >= minDist && dist <= maxDist) {
+                    const sq = files[f] + r;
+                    if (!usedSet.has(sq)) candidates.push({r, f, sq});
+                }
+            }
+        }
+        if (!candidates.length) return null;
+        return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+
 
     // --- Layer 1: Spec — règles génériques (universelles) ---
 
