@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Endgame Trainer</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/assets/chessboard.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/assets/extensions/arrows/arrows.css">
+
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --panel: #111828;
+      --panel2: #0f1624;
+      --text: #e7eefc;
+      --muted: #a9b6cf;
+      --border: rgba(231, 238, 252, 0.12);
+      --shadow: 0 14px 40px rgba(0,0,0,0.35);
+      --btn: #1c2a44;
+      --btnHover: #243659;
+      
+      --highlight-win: #2ecc71;
+      --highlight-loss: #ff5c5c;
+      --highlight-draw: #ffcc66;
+
+      --pagePad: 24px;
+      --cardPad: 16px;
+      --gap: 18px;
+      --boardSize: min(600px, 65vh);
+    }
+
+    @media (max-width: 900px) {
+      :root { --gap: 14px; --boardSize: min(580px, 60vh); }
+    }
+
+    @media (max-width: 600px) {
+      :root {
+        --pagePad: 10px;
+        --cardPad: 10px;
+        --gap: 10px;
+        --boardSize: min(96vw, 46svh, 500px);
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: radial-gradient(1200px 600px at 50% 0%, #162445 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100svh;
+      padding: var(--pagePad);
+      display: grid;
+      place-items: center;
+    }
+
+    .app {
+      width: min(1000px, 100%);
+      display: grid;
+      gap: var(--gap);
+    }
+
+    header {
+      display: flex;
+      gap: 12px;
+      align-items: baseline;
+      justify-content: center;
+      flex-wrap: wrap;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.2px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: var(--gap);
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .boardCard {
+      padding: var(--cardPad);
+      display: grid;
+      place-items: center;
+    }
+
+    .boardSizer {
+      width: min(100%, var(--boardSize));
+      height: min(100%, var(--boardSize));
+      overflow: visible;
+    }
+
+    #board {
+      width: 100%;
+      height: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .sideCard {
+      padding: var(--cardPad);
+      display: grid;
+      gap: 10px;
+    }
+
+    .status {
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      text-align: center;
+      min-height: 3em;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .status.ok   { border-color: rgba(46, 204, 113, 0.35); color: rgba(46, 204, 113, 0.95); }
+    .status.bad  { border-color: rgba(255, 92, 92, 0.35); color: rgba(255, 92, 92, 0.95); }
+    .status.warn { border-color: rgba(255, 204, 102, 0.35); color: rgba(255, 204, 102, 0.95); }
+
+    .btnRow {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .btnRow2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    button, a.linkBtn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--btn);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 14px;
+      cursor: pointer;
+      font-weight: 750;
+      letter-spacing: 0.2px;
+      transition: transform 0.04s ease, background 0.15s ease, opacity 0.15s ease;
+      text-align: center;
+      text-decoration: none;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      font-size: 0.95rem;
+    }
+    button:hover, a.linkBtn:hover { background: var(--btnHover); }
+    button:active, a.linkBtn:active { transform: translateY(1px); }
+    button:disabled, a.linkBtn[aria-disabled="true"] {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-win { border-color: rgba(46, 204, 113, 0.4); }
+    .btn-draw { border-color: rgba(255, 204, 102, 0.4); }
+    .btn-loss { border-color: rgba(255, 92, 92, 0.4); }
+
+    details {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.02);
+      overflow: hidden;
+    }
+    summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 10px 12px;
+      color: var(--muted);
+      font-weight: 800;
+      user-select: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+
+    .detailsBody {
+      padding: 10px 12px 12px 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      justify-content: center;
+    }
+
+    .piece-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 100px;
+    }
+    .piece-group strong { color: var(--text); margin-bottom: 5px; display:block; }
+    .piece-group label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.9rem; cursor: pointer; }
+    .piece-group input { cursor: pointer; }
+
+    .streak-display {
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-bottom: 5px;
+    }
+    .streak-display strong { color: var(--text); }
+    
+    .hidden { display: none !important; }
+
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header>
+      <h1>Endgame Trainer</h1>
+    </header>
+
+    <section class="layout">
+      <div class="card boardCard">
+        <div class="boardSizer">
+          <div id="board" aria-label="Chessboard"></div>
+        </div>
+      </div>
+
+      <div class="card sideCard">
+        
+        <details id="setupDetails">
+          <summary>⚙️ Setup Pieces</summary>
+          <div class="detailsBody">
+            <div class="piece-group">
+                <strong>White</strong>
+                <label><input type="checkbox" name="white-pieces" value="K" checked disabled> King</label>
+                <label><input type="checkbox" name="white-pieces" value="Q"> Queen</label>
+                <label><input type="checkbox" name="white-pieces" value="R"> Rook</label>
+                <label><input type="checkbox" name="white-pieces" value="B"> Bishop</label>
+                <label><input type="checkbox" name="white-pieces" value="N"> Knight</label>
+                <label><input type="checkbox" name="white-pieces" value="P" checked> Pawn</label>
+                <label><input type="checkbox" name="white-pieces" value="P"> 2nd Pawn</label>
+            </div>
+            <div class="piece-group">
+                <strong>Black</strong>
+                <label><input type="checkbox" name="black-pieces" value="K" checked disabled> King</label>
+                <label><input type="checkbox" name="black-pieces" value="Q"> Queen</label>
+                <label><input type="checkbox" name="black-pieces" value="R" checked> Rook</label>
+                <label><input type="checkbox" name="black-pieces" value="B"> Bishop</label>
+                <label><input type="checkbox" name="black-pieces" value="N"> Knight</label>
+                <label><input type="checkbox" name="black-pieces" value="P"> Pawn</label>
+                <label><input type="checkbox" name="black-pieces" value="P"> 2nd Pawn</label>
+            </div>
+            <div style="width:100%; text-align:center; font-size:0.8rem; color:var(--muted); margin-top:5px;">Max 7 pieces total.</div>
+          </div>
+        </details>
+
+        <div class="streak-display">
+            Streak: <strong id="streak">0</strong>
+        </div>
+
+        <div id="status" class="status">Initializing...</div>
+
+        <div class="btnRow" id="guessControls">
+          <button class="btn-win" id="btnWin">Win</button>
+          <button class="btn-draw" id="btnDraw">Draw</button>
+          <button class="btn-loss" id="btnLoss">Loss</button>
+        </div>
+
+        <button id="btnPlayAgain" class="hidden" style="background:var(--highlight-win); border:none; color:white;">Play Again &rarr;</button>
+
+        <div class="btnRow2">
+          <button id="btnNew">New Position</button>
+          <a id="analyzeLink" class="linkBtn" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">Analyze</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module">
+    // Debug helper
+    window.onerror = function(msg, url, line, col, error) {
+       document.getElementById("status").textContent = "JS Error: " + msg;
+       document.getElementById("status").className = "status bad";
+    };
+
+    import { Chessboard, COLOR, BORDER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/Chessboard.js";
+    import { Arrows, ARROW_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/extensions/arrows/Arrows.js";
+    import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.7/+esm";
+
+    console.log("Imports loaded");
+    document.getElementById("status").textContent = "Imports loaded...";
+    
+    const TABLEBASE_URL = "https://tablebase.lichess.ovh/standard?fen=";
+
+    // --- DOM Elements ---
+    const el = {
+      status: document.getElementById("status"),
+      streak: document.getElementById("streak"),
+      btnWin: document.getElementById("btnWin"),
+      btnDraw: document.getElementById("btnDraw"),
+      btnLoss: document.getElementById("btnLoss"),
+      btnNew: document.getElementById("btnNew"),
+      btnPlayAgain: document.getElementById("btnPlayAgain"),
+      analyze: document.getElementById("analyzeLink"),
+      guessControls: document.getElementById("guessControls"),
+    };
+
+    // --- State ---
+    let chess = new Chess();
+    let board = null;
+    let currentFen = "";
+    let currentTbData = null;
+    let streak = 0;
+    let isUserTurn = false;
+    let gameActive = false;
+    let currentObjective = null;
+
+    // --- Init Board ---
+    board = new Chessboard(document.getElementById("board"), {
+      assetsUrl: "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/assets/",
+      position: "8/8/8/8/8/8/8/8", // "empty" keyword crashes, use explicit FEN
+      orientation: COLOR.white,
+      style: {
+        pieces: { file: "pieces/standard.svg" },
+        borderType: BORDER_TYPE.frame
+      },
+      extensions: [{ class: Arrows }]
+    });
+
+    board.enableMoveInput((event) => {
+        switch (event.type) {
+            case "moveInputStarted":
+                // Only allow interaction if it's user turn
+                if (!isUserTurn) return false;
+                // Only allow moving White pieces (since user plays White)
+                // We can check piece color from FEN or chess.js
+                // chess.turn() is 'w'.
+                // event.square has the piece? No, we check chess.js
+                const p = chess.get(event.square);
+                return p && p.color === 'w'; // Hardcode User = White
+                
+            case "validateMoveInput":
+                // Check if move is legal
+                // Note: event.squareFrom, event.squareTo
+                try {
+                    const temp = new Chess(chess.fen());
+                    const m = temp.move({ from: event.squareFrom, to: event.squareTo, promotion: 'q' });
+                    return !!m;
+                } catch (e) { return false; }
+                
+            case "moveInputFinished":
+                // Move logic
+                // If we are here, it means validateMoveInput returned true.
+                console.log("User moved:", event.squareFrom, event.squareTo);
+                handleUserMove(event.squareFrom, event.squareTo);
+                return true;
+        }
+    });
+
+    // --- Event Listeners ---
+    el.btnWin.addEventListener("click", () => handleGuess(2)); // Win for White
+    el.btnDraw.addEventListener("click", () => handleGuess(0));
+    el.btnLoss.addEventListener("click", () => handleGuess(-2));
+    
+    el.btnNew.addEventListener("click", startNewGame);
+    el.btnPlayAgain.addEventListener("click", startNewGame);
+
+    // Start
+    console.log("Starting game loop...");
+    startNewGame();
+
+
+    // --- Core Logic ---
+
+    async function startNewGame() {
+        console.log("startNewGame called");
+        gameActive = false;
+        isUserTurn = false;
+        currentTbData = null;
+        setGuessEnabled(false);
+        if(el.btnPlayAgain) el.btnPlayAgain.classList.add("hidden");
+        if(el.guessControls) el.guessControls.classList.remove("hidden");
+        setStatus("warn", "Generating position...");
+        
+        try {
+            console.log("Generating valid position...");
+            const fen = await generateValidPosition();
+            console.log("Position generated:", fen);
+            
+            currentFen = fen;
+            console.log("Loading into Chess.js...");
+            try {
+                chess.load(fen);
+            } catch(loadErr) {
+                throw new Error("Chess.load failed on FEN: " + fen + " :: " + loadErr);
+            }
+            
+            console.log("Setting board position...");
+            await board.setPosition(fen, true);
+            
+            // Get initial TB data
+            console.log("Fetching TB data...");
+            currentTbData = await fetchTablebase(fen);
+            console.log("TB Data received", currentTbData);
+            
+            // Set Objective
+            // normalize wdl from category if needed handled in fetchTablebase
+            
+            updateLinks(fen);
+            setStatus(null, "Your Turn: Guess result (Win/Draw/Loss) or Play a move.");
+            setGuessEnabled(true);
+            gameActive = true;
+            isUserTurn = true;
+
+        } catch (e) {
+            console.error(e);
+            setStatus("bad", "Error: " + e.message);
+        }
+    }
+
+    async function handleUserMove(from, to) {
+        if (!gameActive || !isUserTurn) return;
+
+        // Apply move locally to validate and get SAN
+        // We use a clone to check validity
+        const tempChess = new Chess(chess.fen());
+        const move = tempChess.move({ from, to, promotion: 'q' });
+        
+        if (!move) {
+            // Invalid move, cm-chessboard might have allowed it visually but it's illegal
+            // Reset board
+            board.setPosition(chess.fen());
+            return;
+        }
+
+        // Move is valid
+        chess.move({ from, to, promotion: 'q' });
+        // Update board visualization (snap piece)
+        // cm-chessboard already moved the piece, but we ensure sync
+        // board.setPosition(chess.fen()); 
+        
+        isUserTurn = false;
+        setStatus("warn", "Thinking...");
+
+        // Evaluate Move
+        const prevWdl = currentTbData.wdl;
+        
+        // Fetch new data
+        try {
+            const newFen = chess.fen();
+            console.log("Fetching response for FEN:", newFen);
+            const newData = await fetchTablebase(newFen);
+            console.log("Response received:", newData);
+            
+            // Check blunder
+            // White moved. Now Black to move.
+            // If White was Winning (2), Black should be Losing (-2).
+            // If White was Drawing (0), Black should be Drawing (0).
+            
+            let failed = false;
+            let msg = "";
+
+            if (prevWdl === 2) { // We were winning
+                 if (newData.wdl !== -2) { // Opponent not losing
+                     failed = true;
+                     msg = "Blunder! You turned a Win into a Draw/Loss.";
+                 }
+            } else if (prevWdl === 0) { // Drawing
+                 if (newData.wdl === 2) { // Opponent Winning
+                     failed = true;
+                     msg = "Blunder! You turned a Draw into a Loss.";
+                 }
+            }
+            
+            if (failed) {
+                endGame(false, msg);
+                // Revert board to show? No, keep it.
+                return;
+            }
+
+            if (chess.isGameOver()) {
+                handleGameOver();
+                return;
+            }
+
+            // Computer Reply (Best Move)
+            if (newData.moves && newData.moves.length > 0) {
+                console.log("Computer found move:", newData.moves[0].uci);
+                const bestMove = newData.moves[0]; // Syzygy best move
+                const uci = bestMove.uci;
+                const fromC = uci.slice(0, 2);
+                const toC = uci.slice(2, 4);
+                
+                chess.move({ from: fromC, to: toC, promotion: 'q' });
+                await board.setPosition(chess.fen(), true);
+                
+                if (chess.isGameOver()) {
+                    handleGameOver();
+                    return;
+                }
+                
+                // Update state
+                currentFen = chess.fen();
+                currentTbData = await fetchTablebase(currentFen);
+                
+                isUserTurn = true;
+                setStatus(null, "Your Turn");
+                updateLinks(currentFen);
+            } else {
+                handleGameOver();
+            }
+
+        } catch (e) {
+            setStatus("bad", "Error: " + e.message);
+        }
+    }
+
+    function handleGuess(guessWdl) {
+        if (!gameActive) return;
+        
+        const actualWdl = currentTbData.wdl;
+        // Map category to wdl if needed, but fetchTablebase handles it
+        
+        let correct = (guessWdl === actualWdl);
+        
+        if (correct) {
+            streak++;
+            updateStreak();
+            setStatus("ok", `Correct! It is a ${wdlToString(actualWdl)}. Keep playing if you want.`);
+            setGuessEnabled(false); // Disable buttons but allow play
+            // el.btnPlayAgain.classList.remove("hidden");
+            el.guessControls.classList.add("hidden");
+        } else {
+            streak = 0;
+            updateStreak();
+            setStatus("bad", `Wrong. It is a ${wdlToString(actualWdl)}.`);
+            endGame(false, `Wrong. It is a ${wdlToString(actualWdl)}.`);
+        }
+    }
+
+    function handleGameOver() {
+        let success = false;
+        let msg = "";
+
+        if (chess.isCheckmate()) {
+            if (chess.turn() === 'b') { // White moved last => White mated Black
+                success = true;
+                msg = "Checkmate! You Won!";
+            } else {
+                // Black mated White
+                // Only success if objective was Loss (unlikely)
+                success = (currentTbData.wdl === -2);
+                msg = success ? "Checkmate (Expected Loss)" : "Checkmate! You Lost.";
+            }
+        } else if (chess.isStalemate()) {
+            // Stalemate is a Draw.
+            // Success if objective was Draw (0) or Loss (-2 - saving a loss is good?). 
+            // Usually if WDL=0, Stalemate is success.
+            success = (currentTbData.wdl <= 0);
+            msg = "Stalemate!";
+        } else {
+            // Insufficient material, 50-move, etc. => Draw
+            success = (currentTbData.wdl <= 0);
+            msg = "Game Over (Draw).";
+        }
+
+        if (success) {
+            streak++;
+            updateStreak();
+            setStatus("ok", msg); // Green
+        } else {
+            // Reset streak on failure
+            streak = 0;
+            updateStreak();
+            setStatus("bad", msg); // Red
+        }
+        
+        endGame(success, msg);
+    }
+
+    function endGame(success, msg) {
+        gameActive = false;
+        isUserTurn = false;
+        setStatus(success ? "ok" : "bad", msg);
+        setGuessEnabled(false);
+        // el.btnPlayAgain.classList.remove("hidden"); // Redundant
+        el.guessControls.classList.add("hidden");
+        if (!success) {
+            streak = 0;
+            updateStreak();
+        }
+    }
+
+    // --- Helpers ---
+
+    function getSelectedPieces() {
+        const w = Array.from(document.querySelectorAll('input[name="white-pieces"]:checked')).map(c=>c.value);
+        const b = Array.from(document.querySelectorAll('input[name="black-pieces"]:checked')).map(c=>c.value);
+        return { w, b };
+    }
+
+    async function generateValidPosition() {
+        const { w, b } = getSelectedPieces();
+        // Ensure Kings
+        if(!w.includes('K')) w.push('K');
+        if(!b.includes('K')) b.push('K');
+        
+        let bestFen = null;
+        let attempts = 0;
+        
+        // We will generate multiple candidates and keep the first "locally interesting" one
+        // to minimize API calls. If we fail to find one, we just take a valid random one.
+        
+        while (attempts < 500) {
+            attempts++;
+            const fen = randomPlacement(w, b);
+            
+            // 1. Basic Validity (Chess rules)
+            const ch = new Chess();
+            try {
+                ch.load(fen);
+                if (ch.isGameOver()) continue; 
+            } catch(e) { continue; }
+
+            // 2. Opponent Check (Illegal for White to move)
+            try {
+                const chB = new Chess(fen.replace(' w ', ' b '));
+                if (chB.inCheck()) continue;
+            } catch(e) { continue; }
+
+            // 3. Local Heuristics (Is it interesting?)
+            if (!isInterestingLocal(ch)) continue;
+
+            // 4. API Validation (The expensive check)
+            try {
+                const data = await fetchTablebase(fen);
+                // Check triviality
+                // If Mate in <= 2 (dtm <= 4 half-moves), skip
+                if (data.wdl !== 0 && data.dtm !== null && Math.abs(data.dtm) <= 4) continue; 
+                
+                // If all good, return this one
+                return fen;
+            } catch(e) { continue; }
+        }
+        
+        // Fallback if we couldn't find a "perfect" one
+        return "k7/8/8/8/8/8/8/K7 w - - 0 1"; 
+    }
+
+    function isInterestingLocal(ch) {
+        const moves = ch.moves({ verbose: true });
+        
+        // 1. Avoid Mate in 1 (too trivial)
+        for (const m of moves) {
+            if (m.san.includes('#')) return false;
+            
+            // 2. Avoid immediate capture of non-pawn pieces (hanging pieces)
+            // This enforces "no obvious move" (taking a free piece)
+            if (m.captured && m.captured !== 'p') return false;
+        }
+        
+        // 3. Avoid immediate promotion
+        const board = ch.board();
+        for (let r=0; r<8; r++) {
+            for (let c=0; c<8; c++) {
+                const p = board[r][c];
+                if (p && p.type === 'p') {
+                    if (p.color === 'w' && r === 1) return false; // Rank 7
+                    if (p.color === 'b' && r === 6) return false; // Rank 2
+                }
+            }
+        }
+
+        return true;
+    }
+
+    function randomPlacement(wPieces, bPieces) {
+        const files = "abcdefgh";
+        const used = new Set();
+        const getSq = () => files[Math.floor(Math.random()*8)] + (Math.floor(Math.random()*8)+1);
+        
+        let list = [
+            ...wPieces.map(t => ({t: t.toLowerCase(), c: 'w'})),
+            ...bPieces.map(t => ({t: t.toLowerCase(), c: 'b'}))
+        ];
+        
+        // Limit to 7
+        if (list.length > 7) {
+             // Keep Kings
+             const kings = list.filter(p => p.t === 'k');
+             const others = list.filter(p => p.t !== 'k');
+             others.sort(() => 0.5 - Math.random());
+             list = [...kings, ...others.slice(0, 7 - kings.length)];
+        }
+
+        const board = [];
+        
+        // Place Kings first to ensure
+        const kings = list.filter(p => p.t === 'k');
+        const others = list.filter(p => p.t !== 'k');
+        
+        for(let p of [...kings, ...others]) {
+             let sq;
+             let tries = 0;
+             while(tries < 100) {
+                 sq = getSq();
+                 if(!used.has(sq)) {
+                     // Pawn constraints
+                     if (p.t === 'p') {
+                         if (sq[1] === '1' || sq[1] === '8') { tries++; continue; }
+                     }
+                     // Kings touching check? Hard to do on partial board easily without distance check
+                     // We rely on 'attempts' loop in generateValidPosition to filter bad placements
+                     break;
+                 }
+                 tries++;
+             }
+             if(sq) {
+                 used.add(sq);
+                 board.push({sq, ...p});
+             }
+        }
+        
+        // Build FEN
+        const grid = Array(8).fill(null).map(() => Array(8).fill(""));
+        board.forEach(p => {
+            const f = files.indexOf(p.sq[0]);
+            const r = 8 - parseInt(p.sq[1]);
+            grid[r][f] = (p.c === 'w') ? p.t.toUpperCase() : p.t.toLowerCase();
+        });
+        
+        let fenRows = grid.map(row => {
+            let empty = 0;
+            let str = "";
+            row.forEach(c => {
+                if (c === "") empty++;
+                else {
+                    if (empty > 0) str += empty;
+                    empty = 0;
+                    str += c;
+                }
+            });
+            if (empty > 0) str += empty;
+            return str;
+        });
+        
+        return fenRows.join("/") + " w - - 0 1";
+    }
+
+    async function fetchTablebase(fen) {
+        const url = TABLEBASE_URL + encodeURIComponent(fen);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        
+        // Normalize
+        if (typeof data.wdl === 'undefined' && data.category) {
+            const cat = data.category;
+            if (cat === 'win') data.wdl = 2;
+            else if (cat === 'loss') data.wdl = -2;
+            else if (cat === 'draw') data.wdl = 0;
+            else data.wdl = 0;
+        }
+        return data;
+    }
+
+    function setStatus(kind, text) {
+        el.status.textContent = text;
+        el.status.className = "status " + (kind || "");
+    }
+
+    function setGuessEnabled(en) {
+        el.btnWin.disabled = !en;
+        el.btnDraw.disabled = !en;
+        el.btnLoss.disabled = !en;
+    }
+
+    function updateStreak() {
+        el.streak.textContent = streak;
+    }
+
+    function wdlToString(wdl) {
+        if (wdl > 0) return "Win";
+        if (wdl < 0) return "Loss";
+        return "Draw";
+    }
+    
+    function updateLinks(fen) {
+        el.analyze.href = `https://lichess.org/analysis/${fen.replace(/ /g, '_')}`;
+        el.analyze.removeAttribute("aria-disabled");
+    }
+
+  </script>
+</body>
+</html>
