@@ -455,6 +455,36 @@
         }
     }
 
+    // --- Persistence ---
+    function saveSettings() {
+        try {
+            const w = Array.from(document.querySelectorAll('input[name="white-pieces"]')).map(el => el.checked);
+            const b = Array.from(document.querySelectorAll('input[name="black-pieces"]')).map(el => el.checked);
+            localStorage.setItem("endgame-trainer-white", JSON.stringify(w));
+            localStorage.setItem("endgame-trainer-black", JSON.stringify(b));
+        } catch(e) { console.warn("Could not save settings", e); }
+    }
+
+    function loadSettings() {
+        try {
+            const w = JSON.parse(localStorage.getItem("endgame-trainer-white"));
+            const b = JSON.parse(localStorage.getItem("endgame-trainer-black"));
+            
+            if (w) {
+                const inputs = document.querySelectorAll('input[name="white-pieces"]');
+                w.forEach((val, i) => { if(inputs[i] && !inputs[i].disabled) inputs[i].checked = val; });
+            }
+            if (b) {
+                const inputs = document.querySelectorAll('input[name="black-pieces"]');
+                b.forEach((val, i) => { if(inputs[i] && !inputs[i].disabled) inputs[i].checked = val; });
+            }
+        } catch(e) { console.warn("Could not load settings", e); }
+    }
+    
+    // Init Persistence
+    loadSettings();
+    document.querySelectorAll('.piece-group input').forEach(el => el.addEventListener('change', saveSettings));
+
     // Start
     console.log("Starting game loop...");
     startNewGame();
