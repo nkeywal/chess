@@ -226,6 +226,12 @@
     
     .hidden { display: none !important; }
 
+    .marker-selected {
+        fill: rgba(255, 255, 255, 0.4);
+        stroke: none;
+        pointer-events: none;
+    }
+
   </style>
 </head>
 
@@ -302,7 +308,10 @@
 
     import { Chessboard, COLOR, BORDER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/Chessboard.js";
     import { Arrows, ARROW_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/extensions/arrows/Arrows.js";
+    import { Markers, MARKER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/extensions/markers/Markers.js";
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.7/+esm";
+
+    const MARKER_SELECTED = { class: "marker-selected", slice: "markerSquare" };
 
     console.log("Imports loaded");
     document.getElementById("status").textContent = "Imports loaded...";
@@ -331,6 +340,7 @@
     let isUserTurn = false;
     let gameActive = false;
     let currentObjective = null;
+    let selectedSquare = null;
 
     // --- Init Board ---
     board = new Chessboard(document.getElementById("board"), {
@@ -341,24 +351,28 @@
         pieces: { file: "pieces/standard.svg" },
         borderType: BORDER_TYPE.frame
       },
-      extensions: [{ class: Arrows }]
+      extensions: [{ class: Arrows }, { class: Markers }]
     });
 
     board.enableMoveInput((event) => {
+        if (!isUserTurn || !gameActive) return false;
+
         switch (event.type) {
             case "moveInputStarted":
-                // Only allow interaction if it's user turn
-                if (!isUserTurn) return false;
-                // Only allow moving White pieces (since user plays White)
-                // We can check piece color from FEN or chess.js
-                // chess.turn() is 'w'.
-                // event.square has the piece? No, we check chess.js
                 const p = chess.get(event.square);
-                return p && p.color === 'w'; // Hardcode User = White
+                const isOurPiece = p && p.color === 'w';
+                if (isOurPiece) {
+                    if (selectedSquare === event.square) {
+                        selectSquare(null);
+                        return false; // Stop interaction on deselect
+                    } else {
+                        selectSquare(event.square);
+                        return true;
+                    }
+                }
+                return false;
                 
             case "validateMoveInput":
-                // Check if move is legal
-                // Note: event.squareFrom, event.squareTo
                 try {
                     const temp = new Chess(chess.fen());
                     const m = temp.move({ from: event.squareFrom, to: event.squareTo, promotion: 'q' });
@@ -366,10 +380,11 @@
                 } catch (e) { return false; }
                 
             case "moveInputFinished":
-                // Move logic
-                // If we are here, it means validateMoveInput returned true.
-                console.log("User moved:", event.squareFrom, event.squareTo);
-                handleUserMove(event.squareFrom, event.squareTo);
+                // Defer clearing to ensure it happens after any internal event handling
+                setTimeout(() => selectSquare(null), 10);
+                if (event.legalMove) {
+                    handleUserMove(event.squareFrom, event.squareTo);
+                }
                 return true;
         }
     });
@@ -381,6 +396,14 @@
     
     el.btnNew.addEventListener("click", startNewGame);
     el.btnPlayAgain.addEventListener("click", startNewGame);
+
+    function selectSquare(sq) {
+        board.removeMarkers(undefined, MARKER_SELECTED);
+        selectedSquare = sq;
+        if (selectedSquare) {
+            board.addMarker(MARKER_SELECTED, selectedSquare);
+        }
+    }
 
     // Start
     console.log("Starting game loop...");
@@ -394,6 +417,7 @@
         gameActive = false;
         isUserTurn = false;
         currentTbData = null;
+        selectSquare(null);
         setGuessEnabled(false);
         if(el.btnPlayAgain) el.btnPlayAgain.classList.add("hidden");
         if(el.guessControls) el.guessControls.classList.remove("hidden");
@@ -436,25 +460,13 @@
     }
 
     async function handleUserMove(from, to) {
-        if (!gameActive || !isUserTurn) return;
+        // Double check: clear any selection immediately
+        selectSquare(null);
 
-        // Apply move locally to validate and get SAN
-        // We use a clone to check validity
-        const tempChess = new Chess(chess.fen());
-        const move = tempChess.move({ from, to, promotion: 'q' });
-        
-        if (!move) {
-            // Invalid move, cm-chessboard might have allowed it visually but it's illegal
-            // Reset board
-            board.setPosition(chess.fen());
-            return;
-        }
+        if (!gameActive) return;
 
-        // Move is valid
+        // Move is valid (already checked by cm-chessboard)
         chess.move({ from, to, promotion: 'q' });
-        // Update board visualization (snap piece)
-        // cm-chessboard already moved the piece, but we ensure sync
-        // board.setPosition(chess.fen()); 
         
         isUserTurn = false;
         setStatus("warn", "Thinking...");
