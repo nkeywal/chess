@@ -231,6 +231,66 @@
         stroke: none;
         pointer-events: none;
     }
+    .arrow-win { color: #31d07c; }
+    .arrow-win line,
+    .arrow-win path,
+    .arrow-win polygon,
+    .arrow-win marker path,
+    .arrow-win marker polygon {
+        stroke: currentColor !important;
+        fill: currentColor !important;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+    .arrow-win marker polygon,
+    .arrow-win marker path {
+        transform-box: fill-box;
+        transform-origin: center;
+        transform: scale(0.45);
+    }
+    .arrow-draw { color: #ffb042; }
+    .arrow-draw line,
+    .arrow-draw path,
+    .arrow-draw polygon,
+    .arrow-draw marker path,
+    .arrow-draw marker polygon {
+        stroke: currentColor !important;
+        fill: currentColor !important;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+    .arrow-draw marker polygon,
+    .arrow-draw marker path {
+        transform-box: fill-box;
+        transform-origin: center;
+        transform: scale(0.45);
+    }
+    .arrow-loss { color: #ff5c5c; }
+    .arrow-loss line,
+    .arrow-loss path,
+    .arrow-loss polygon,
+    .arrow-loss marker path,
+    .arrow-loss marker polygon {
+        stroke: currentColor !important;
+        fill: currentColor !important;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+    .arrow-loss marker polygon,
+    .arrow-loss marker path {
+        transform-box: fill-box;
+        transform-origin: center;
+        transform: scale(0.45);
+    }
+
+    #board svg marker path,
+    #board svg marker polygon {
+        fill: context-stroke !important;
+        stroke: context-stroke !important;
+        transform-box: fill-box;
+        transform-origin: center;
+        transform: scale(0.45);
+    }
 
   </style>
 </head>
@@ -312,6 +372,9 @@
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.7/+esm";
 
     const MARKER_SELECTED = { class: "marker-selected", slice: "markerSquare" };
+    const ARROW_WIN = { ...ARROW_TYPE.default, class: "arrow-win", color: "#31d07c" };
+    const ARROW_DRAW = { ...ARROW_TYPE.default, class: "arrow-draw", color: "#ffb042" };
+    const ARROW_LOSS = { ...ARROW_TYPE.default, class: "arrow-loss", color: "#ff5c5c" };
 
     console.log("Imports loaded");
     document.getElementById("status").textContent = "Imports loaded...";
@@ -417,6 +480,7 @@
         gameActive = false;
         isUserTurn = false;
         currentTbData = null;
+        clearArrows();
         selectSquare(null);
         setGuessEnabled(false);
         if(el.btnPlayAgain) el.btnPlayAgain.classList.add("hidden");
@@ -460,6 +524,7 @@
     }
 
     async function handleUserMove(from, to) {
+        clearArrows();
         // Double check: clear any selection immediately
         selectSquare(null);
 
@@ -546,6 +611,7 @@
 
     function handleGuess(guessWdl) {
         if (!gameActive) return;
+        drawOutcomeArrows(currentTbData);
         
         const actualWdl = currentTbData.wdl;
         // Map category to wdl if needed, but fetchTablebase handles it
@@ -621,6 +687,55 @@
     }
 
     // --- Helpers ---
+    function clearArrows() {
+        if (typeof board.removeArrows === "function") board.removeArrows();
+    }
+
+    function uciToArrow(uci) {
+        if (typeof uci !== "string" || uci.length < 4) return null;
+        const from = uci.slice(0, 2);
+        const to = uci.slice(2, 4);
+        if (!/^[a-h][1-8]$/.test(from) || !/^[a-h][1-8]$/.test(to)) return null;
+        return { from, to };
+    }
+
+    function categoryToWdl(category) {
+        const c = String(category || "").toLowerCase();
+        if (c.includes("win")) return 2;
+        if (c.includes("loss")) return -2;
+        if (c.includes("draw")) return 0;
+        return null;
+    }
+
+    function drawOutcomeArrows(tbData) {
+        clearArrows();
+        const moves = Array.isArray(tbData?.moves) ? tbData.moves : [];
+        if (!moves.length) return;
+
+        const bestWdl = tbData.wdl;
+        let invert = false;
+        const firstBase = categoryToWdl(moves[0]?.category);
+        if (firstBase !== null && firstBase !== bestWdl && -firstBase === bestWdl) {
+            invert = true;
+        }
+
+        for (const m of moves) {
+            const arrow = uciToArrow(m.uci);
+            if (!arrow) continue;
+            const base = categoryToWdl(m.category);
+            if (base === null) continue;
+            const moveWdl = invert ? -base : base;
+
+            let arrowType = null;
+            if (moveWdl === 2) arrowType = ARROW_WIN;
+            else if (moveWdl === 0) arrowType = ARROW_DRAW;
+            else if (moveWdl === -2) arrowType = ARROW_LOSS;
+
+            if (arrowType) {
+                board.addArrow(arrowType, arrow.from, arrow.to);
+            }
+        }
+    }
 
     function getSelectedPieces() {
         const w = Array.from(document.querySelectorAll('input[name="white-pieces"]:checked')).map(c=>c.value);
