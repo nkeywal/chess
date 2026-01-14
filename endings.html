@@ -747,7 +747,7 @@
             let fen;
 
             if (scenario === "KR_KP") {
-                fen = randomPlacement_KR_KP(); // Specialized placement
+                fen = randomPlacement_KR_KP(w, b); // Specialized placement with pieces
             } else {
                 fen = randomPlacement(w, b); // Generic placement
             }
@@ -806,15 +806,33 @@
     }
 
     // --- Specialized Placement for KR vs KP (Updated Policy) ---
-    function randomPlacement_KR_KP() {
+    function randomPlacement_KR_KP(wPieces, bPieces) {
         const files = "abcdefgh";
         const grid = Array(8).fill(null).map(() => Array(8).fill(""));
         const used = new Set();
         
-        const isSchemaA = Math.random() < 0.5;
+        // Determine sides based on input
+        let pawnColor, rookColor;
         
-        const pawnColor = isSchemaA ? 'b' : 'w';
-        const rookColor = isSchemaA ? 'w' : 'b';
+        const has = (list, char) => list.some(p => p.toUpperCase() === char);
+        const wHasR = has(wPieces, 'R');
+        const wHasP = has(wPieces, 'P');
+        
+        if (wHasR && !wHasP) {
+             // White = Rook
+             pawnColor = 'b';
+             rookColor = 'w';
+        } else if (wHasP && !wHasR) {
+             // White = Pawn
+             pawnColor = 'w';
+             rookColor = 'b';
+        } else {
+             // Fallback (e.g. if generic or mixed)
+             const isSchemaA = Math.random() < 0.5;
+             pawnColor = isSchemaA ? 'b' : 'w';
+             rookColor = isSchemaA ? 'w' : 'b';
+        }
+        
         const kpColor = pawnColor;
         const krColor = rookColor;
 
