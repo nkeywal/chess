@@ -231,71 +231,58 @@
         stroke: none;
         pointer-events: none;
     }
-    .arrow-win { color: #31d07c; }
-    .arrow-win line,
-    .arrow-win path,
-    .arrow-win polygon,
-    .arrow-win marker path,
-    .arrow-win marker polygon {
-        stroke: currentColor !important;
-        fill: currentColor !important;
-        stroke-linecap: round;
-        stroke-linejoin: round;
+
+    /* --- Pretty Arrows --- */
+    /* Link lines to custom markers defined in HTML */
+    .arrow-win line { 
+        stroke: #4ade80 !important; 
+        marker-end: url(#arrowHeadWin) !important;
     }
-    .arrow-win marker polygon,
-    .arrow-win marker path {
-        transform-box: fill-box;
-        transform-origin: center;
-        transform: scale(0.45);
+    .arrow-draw line { 
+        stroke: #facc15 !important; 
+        marker-end: url(#arrowHeadDraw) !important;
     }
-    .arrow-draw { color: #ffb042; }
-    .arrow-draw line,
-    .arrow-draw path,
-    .arrow-draw polygon,
-    .arrow-draw marker path,
-    .arrow-draw marker polygon {
-        stroke: currentColor !important;
-        fill: currentColor !important;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-    }
-    .arrow-draw marker polygon,
-    .arrow-draw marker path {
-        transform-box: fill-box;
-        transform-origin: center;
-        transform: scale(0.45);
-    }
-    .arrow-loss { color: #ff5c5c; }
-    .arrow-loss line,
-    .arrow-loss path,
-    .arrow-loss polygon,
-    .arrow-loss marker path,
-    .arrow-loss marker polygon {
-        stroke: currentColor !important;
-        fill: currentColor !important;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-    }
-    .arrow-loss marker polygon,
-    .arrow-loss marker path {
-        transform-box: fill-box;
-        transform-origin: center;
-        transform: scale(0.45);
+    .arrow-loss line { 
+        stroke: #f87171 !important; 
+        marker-end: url(#arrowHeadLoss) !important;
     }
 
+    /* Common visual finish */
+    .arrow-win, .arrow-draw, .arrow-loss {
+        opacity: 0.9;
+        filter: drop-shadow(0 0 4px rgba(0,0,0,0.5));
+    }
+    
+    /* Ensure the lines have round caps */
+    .arrow-win line, .arrow-draw line, .arrow-loss line {
+        stroke-linecap: round;
+    }
+
+    /* Remove old marker styling attempts */
     #board svg marker path,
     #board svg marker polygon {
-        fill: context-stroke !important;
-        stroke: context-stroke !important;
-        transform-box: fill-box;
-        transform-origin: center;
-        transform: scale(0.45);
+        stroke-width: 0;
     }
 
   </style>
 </head>
 
 <body>
+  <!-- Custom SVG Markers for Arrows -->
+  <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
+    <defs>
+      <marker id="arrowHeadWin" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80" />
+      </marker>
+      <marker id="arrowHeadDraw" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#facc15" />
+      </marker>
+      <marker id="arrowHeadLoss" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#f87171" />
+      </marker>
+    </defs>
+  </svg>
+
   <div class="app">
     <header>
       <h1>Endgame Trainer</h1>
@@ -372,9 +359,9 @@
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.7/+esm";
 
     const MARKER_SELECTED = { class: "marker-selected", slice: "markerSquare" };
-    const ARROW_WIN = { ...ARROW_TYPE.default, class: "arrow-win", color: "#31d07c" };
-    const ARROW_DRAW = { ...ARROW_TYPE.default, class: "arrow-draw", color: "#ffb042" };
-    const ARROW_LOSS = { ...ARROW_TYPE.default, class: "arrow-loss", color: "#ff5c5c" };
+    const ARROW_WIN = { ...ARROW_TYPE.default, class: "arrow-win" };
+    const ARROW_DRAW = { ...ARROW_TYPE.default, class: "arrow-draw" };
+    const ARROW_LOSS = { ...ARROW_TYPE.default, class: "arrow-loss" };
 
     console.log("Imports loaded");
     document.getElementById("status").textContent = "Imports loaded...";
