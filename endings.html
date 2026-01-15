@@ -738,10 +738,15 @@
         let attempts = 0;
         const MAX_ATTEMPTS = 2000;
         let validCandidatesFound = 0;
-        let lastValidFen = null;
+        let bestFallbackFen = null;
+        let maxDtm = -1;
+        let rateLimited = false;
+        
+        const stats = { totalGenerated: 0, passedLocalGeneric: 0, passedLocalSpecific: 0, tablebaseFetched: 0, passedTbGeneric: 0, passedTbSpecific: 0, finalSuccess: 0 };
 
         while (attempts < MAX_ATTEMPTS) {
             attempts++;
+            stats.totalGenerated++;
             
             // --- Step 1: Generation ---
             let fen;
@@ -759,50 +764,79 @@
 
             // --- Step 2: Generic Pre-TB Validation ---
             if (!validateGenericPreTB(ch)) continue;
+            stats.passedLocalGeneric++;
 
             // --- Step 3: Specific Pre-TB Validation ---
             if (scenario === "KR_KP") {
                 if (!validateSpecificPreTB_KR_KP(ch)) continue;
             }
+            stats.passedLocalSpecific++;
 
             // --- Step 4: Tablebase Fetch ---
             let tbData;
             try {
                 tbData = await fetchTablebase(fen);
-            } catch (e) { continue; }
+                stats.tablebaseFetched++;
+            } catch (e) { 
+                if (e.message.includes("429")) {
+                    console.warn("Lichess API Rate Limit (429) reached. Stopping search.");
+                    rateLimited = true;
+                    break; // Stop trying, use fallback if available
+                }
+                continue; 
+            }
 
             // --- Step 5: Generic Post-TB Validation ---
             if (!validateGenericPostTB(ch, tbData)) continue;
+            stats.passedTbGeneric++;
 
             // --- Step 6: Specific Post-TB Validation ---
             if (scenario === "KR_KP") {
                 if (!validateSpecificPostTB_KR_KP(ch, tbData)) continue;
             }
+            stats.passedTbSpecific++;
 
             // --- Success / Preference Logic ---
-            lastValidFen = fen; // Save as fallback
+            // Update Best Fallback (Max DTM)
+            const currentDtm = tbData.dtm !== undefined && tbData.dtm !== null ? Math.abs(tbData.dtm) : 0;
+            if (currentDtm > maxDtm) {
+                maxDtm = currentDtm;
+                bestFallbackFen = fen;
+            }
 
             if (preferredResult !== null) {
                 if (tbData.wdl === preferredResult) {
+                    stats.finalSuccess++;
+                    console.log("Generation Stats (Perfect Match):", stats);
                     return fen; // Perfect match
                 } else {
-                    validCandidatesFound++;
-                    if (validCandidatesFound > maxPreferredAttempts) {
-                         return fen; // Good enough
+                    // If we haven't found our preferred result yet, but we've tried many times,
+                    // accept the best fallback so far.
+                    if (attempts > 1000) {
+                         stats.finalSuccess++;
+                         console.log(`Generation Stats (Fallback, Max DTM=${maxDtm}):`, stats);
+                         return bestFallbackFen; 
                     }
                     // Else loop again to try finding preferred result
                     continue; 
                 }
             }
 
+            stats.finalSuccess++;
+            console.log("Generation Stats:", stats);
             return fen;
         }
 
-        if (lastValidFen) {
-            return lastValidFen;
+        console.log("Generation Stats (End):", stats);
+        if (bestFallbackFen) {
+            console.log(`Returning best fallback with DTM=${maxDtm}`);
+            return bestFallbackFen;
         }
 
-        throw new Error("Could not generate a valid position after " + MAX_ATTEMPTS + " attempts.");
+        const msg = rateLimited 
+            ? "Could not generate a valid position (Lichess API Rate Limit reached)."
+            : `Could not generate a valid position after ${MAX_ATTEMPTS} attempts.`;
+        throw new Error(msg);
     }
 
     // --- Specialized Placement for KR vs KP (Updated Policy) ---
@@ -1010,8 +1044,65 @@
         const pieces = getPieceLocations(ch);
         const pPawn = pieces.find(p => p.type === 'p');
         const pRook = pieces.find(p => p.type === 'r');
+        const pKingR = pieces.find(p => p.type === 'k' && p.color === pRook.color);
+        const pKingP = pieces.find(p => p.type === 'k' && p.color === pPawn.color); // Pawn's king
         
-        if (!pPawn || !pRook) return false;
+        if (!pPawn || !pRook || !pKingR || !pKingP) return false;
+
+        // Pas d'alignement Roi Faible / Tour adverse (même rangée ou colonne)
+        if (pKingP.square[0] === pRook.square[0] || pKingP.square[1] === pRook.square[1]) {
+            return false;
+        }
+
+        // Règle d'opposition : Si Rois alignés (même rang/colonne), distance != 2 (pas d'opposition directe à 1 case)
+        if (pKingR.square[0] === pKingP.square[0] || pKingR.square[1] === pKingP.square[1]) {
+             const distKings = getChebyshevDistance(pKingR.square, pKingP.square);
+             if (distKings === 2) return false;
+        }
+
+        // Règle de liberté du Roi Faible : Au moins 2 cases de fuite
+        let flightSquares = 0;
+        const kpFile = pKingP.square.charCodeAt(0) - 97; // 0-7
+        const kpRank = 8 - parseInt(pKingP.square[1]);   // 0-7 (matrix coords)
+        const pawnColor = pKingP.color;
+        const oppColor = pawnColor === 'w' ? 'b' : 'w';
+
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                if (dx === 0 && dy === 0) continue;
+                const nx = kpFile + dx;
+                const ny = kpRank + dy;
+                
+                if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8) {
+                    const destSq = "abcdefgh"[nx] + (8 - ny);
+                    const piece = ch.get(destSq);
+                    
+                    // Case libre ou prenable (non amie)
+                    if (!piece || piece.color !== pawnColor) {
+                        // Non attaquée par l'adversaire
+                        if (!ch.isAttacked(destSq, oppColor)) {
+                            flightSquares++;
+                        }
+                    }
+                }
+            }
+        }
+        if (flightSquares < 2) return false;
+
+        // Règle de distance Tour-Roi Faible : dist(R, Kp) > 1
+        const dRKp = getChebyshevDistance(pRook.square, pKingP.square);
+        if (dRKp <= 1) return false;
+
+        // Si la tour est en prise, rejette 90% des positions
+        const rColor = pRook.color;
+        const opponentColor = rColor === 'w' ? 'b' : 'w';
+        if (ch.isAttacked(pRook.square, opponentColor)) {
+            if (Math.random() < 0.9) return false;
+        }
+
+        // Éloignement du Roi Fort (Distance >= 4)
+        const dKrP = getChebyshevDistance(pKingR.square, pPawn.square);
+        if (dKrP < 4) return false;
 
         // Capture immédiate du pion par le camp de la tour (roi ou tour)
         const rookSide = pRook.color;
@@ -1238,7 +1329,7 @@
     async function fetchTablebase(fen) {
         const url = TABLEBASE_URL + encodeURIComponent(fen);
         const res = await fetch(url);
-        if (!res.ok) throw new Error(res.statusText);
+        if (!res.ok) throw new Error("HTTP " + res.status + " " + res.statusText);
         const data = await res.json();
         
         // Normalize
