@@ -47,99 +47,104 @@ def filter_tb_generic(board: chess.Board, tb: Mapping[str, Any]) -> bool:
 
 def filter_notb_krp_vs_kr(board: chess.Board) -> bool:
     """
-    KRP vs KR no-TB specific filter (White to move):
-
-    - White pawn: files b..g (file index 1..6) and advanced (human ranks 4/5/6 => 0-based ranks 3/4/5).
-    - Combat zone: both kings close to the pawn (Chebyshev distance <= 3).
-    - Activity: no immediate captures for White on move 1 (no legal capture moves).
-    - White king not in check.
-    - Black rook attacks no White piece (king/rook/pawn).
-    - If black king attacks the pawn (Chebyshev distance <= 1), then the pawn is defended by White king or White rook.
+    KRP (White) vs KR (Black).
+    CORRECTED VERSION.
     """
     wk = board.king(chess.WHITE)
     bk = board.king(chess.BLACK)
-    wp = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
-    wr = next(iter(board.pieces(chess.ROOK, chess.WHITE)))
-    br = next(iter(board.pieces(chess.ROOK, chess.BLACK)))
+    
+    # Récupération sécurisée
+    try:
+        wp = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
+        wr = next(iter(board.pieces(chess.ROOK, chess.WHITE)))
+        br = next(iter(board.pieces(chess.ROOK, chess.BLACK)))
+    except StopIteration:
+        return False
 
     pf, pr = chess.square_file(wp), chess.square_rank(wp)
 
-    # Pawn file b..g (1..6)
-    if pf < 1 or pf > 6:
-        return False
+    # 1. PION : Colonnes b-g, Rangs index 4, 5 (Human 5, 6)
+    # C'est la zone de décision (Lucena vs Philidor)
+    if pf < 1 or pf > 6: return False
+    if pr not in (4, 5): return False 
 
-    # Pawn advanced: human ranks 5/6 -> 0-based 4/5
-    if pr not in (4, 5):
-        return False
+    # 2. SÉCURITÉ : Pas d'échec au Roi Blanc (Essentiel pour l'estimation)
+    if board.is_check(): return False
 
-    # White king not in check.
-    if board.is_check():
-        return False
-
-    # Combat zone: both kings within Chebyshev distance <= 3 from the pawn.
+    # 3. ROI BLANC : Doit soutenir le pion (Distance <= 2)
+    # S'il est plus loin, il ne sert à rien.
     wkf, wkr = chess.square_file(wk), chess.square_rank(wk)
-    bkf, bkr = chess.square_file(bk), chess.square_rank(bk)
+    if max(abs(wkf - pf), abs(wkr - pr)) > 2: return False
 
-    if max(abs(wkf - pf), abs(wkr - pr)) > 2:
-        return False
-    if max(abs(bkf - pf), abs(bkr - pr)) > 3:
-        return False
+    # (NOTE: On a supprimé la contrainte de distance sur le Roi Noir 
+    # pour autoriser les rois "coupés" au loin).
 
-    # Activity: no immediate captures for White.
+    # 4. ACTIVITÉ : Pas de capture immédiate (nettoyage tactique)
     for mv in board.legal_moves:
-        if board.is_capture(mv):
-            return False
+        if board.is_capture(mv): return False
 
-    # Black rook attacks no White piece.
+    # 5. TOUR NOIRE : CORRECTION MAJEURE ICI
+    # Elle ne doit pas attaquer le ROI (Echec) ni la TOUR (Echange).
+    # MAIS elle DOIT pouvoir attaquer le PION (c'est la base de la défense).
     br_attacks = board.attacks(br)
-    for sq in (wk, wr, wp):
+    for sq in (wk, wr): # <-- wp a été retiré de cette liste !
         if (br_attacks >> sq) & 1:
             return False
 
-    # If black king attacks the pawn, pawn must be defended by white king or white rook.
-    if max(abs(bkf - pf), abs(bkr - pr)) <= 1:
-        defended_by_wk = max(abs(wkf - pf), abs(wkr - pr)) <= 1
-        defended_by_wr = ((board.attacks(wr) >> wp) & 1) == 1
-        if not (defended_by_wk or defended_by_wr):
+    # 6. PROTECTION DU PION
+    # Si le pion est attaqué (par Roi ou Tour), il doit être défendu.
+    attackers = board.attackers(chess.BLACK, wp)
+    if attackers:
+        defenders = board.attackers(chess.WHITE, wp)
+        if not defenders:
             return False
 
     return True
 
 
-
-
 def filter_tb_krp_vs_kr(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     """
-    KRP vs KR TB-specific filter (White POV outcomes):
-
-    - Reject White losses.
-    - If White wins: exactly one first move must also be a win.
-    - If draw: keep only if the white pawn is on the 6th or 7th rank (human),
-      i.e. 0-based rank in {5, 6}.
+    KRP vs KR TB filter.
+    Selects 'Precision Wins' or 'False Wins'.
     """
     wdl = tb["wdl"]
-    if wdl < 0:
-        return False
+    
+    # Rejette les défaites (Loss) - trop rares ou dues à des gaffes
+    if wdl < 0: return False
 
+    # --- CAS 1 : VICTOIRE (Chercher la précision / Lucena) ---
     if wdl > 0:
         winning = 0
         for m in tb["moves"]:
             if m["wdl"] == 1:
                 winning += 1
-                if winning > 1:
-                    return False
-        return winning == 1
+                if winning > 1: 
+                    return False # Trop facile si plusieurs chemins gagnent
+        return winning == 1 # Un seul coup gagne (Le Pont, etc.)
 
-    # Draw case.
-    wp = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
-    return chess.square_rank(wp) in (5, 6)
+    # --- CAS 2 : NULLE (Chercher l'illusion de gain) ---
+    if wdl == 0:
+        wp = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
+        wk = board.king(chess.WHITE)
+        bk = board.king(chess.BLACK)
+        
+        pr = chess.square_rank(wp)
+        pf = chess.square_file(wp)
+        wkr = chess.square_rank(wk)
+        bkf = chess.square_file(bk)
 
+        # 1. Illusion d'Activité : Le Roi Blanc est DEVANT ou A CÔTÉ du pion.
+        # S'il est derrière (wkr < pr), c'est passif et l'estimation "Nulle" est facile.
+        if wkr < pr: return False
 
+        # 2. Illusion de Passage : Le Roi Noir n'est PAS devant le pion.
+        # S'il est sur la même colonne (bkf == pf), il bloque visiblement.
+        # On veut qu'il soit sur le côté (coupé ou flanc), pour que le joueur pense "C'est libre !".
+        if bkf == pf: return False
+        
+        return True
 
-
-
-
-
+    return False
 
 
 
