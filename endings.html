@@ -401,6 +401,8 @@
     let gameActive = false;
     let currentObjective = null;
     let selectedSquare = null;
+    let cachedPositions = null;
+    let cachedFilename = null;
 
     // --- Init Board ---
     board = new Chessboard(document.getElementById("board"), {
@@ -607,8 +609,25 @@
 
             // Computer Reply (Best Move)
             if (newData.moves && newData.moves.length > 0) {
-                console.log("Computer found move:", newData.moves[0].uci);
-                const bestMove = newData.moves[0]; // Syzygy best move
+                let bestMove = newData.moves[0];
+                console.log("Computer best move (default):", bestMove.uci);
+
+                // Tie-break for Draw: Prefer no capture
+                const bestWdl = categoryToWdl(bestMove.category);
+                if (bestWdl === 0) { // If best outcome is Draw
+                    // Filter moves that preserve the Draw
+                    const drawMoves = newData.moves.filter(m => categoryToWdl(m.category) === 0);
+                    
+                    // Look for non-capture among draw moves
+                    // Using SAN to detect capture ('x')
+                    const nonCapture = drawMoves.find(m => m.san && !m.san.includes('x'));
+                    
+                    if (nonCapture) {
+                        console.log("Switched to non-capture draw move:", nonCapture.uci);
+                        bestMove = nonCapture;
+                    }
+                }
+
                 const uci = bestMove.uci;
                 const fromC = uci.slice(0, 2);
                 const toC = uci.slice(2, 4);
@@ -733,89 +752,101 @@
         const filename = `${w.join('')}_${b.join('')}.txt`;
         const url = `out/${filename}`; // Relative path
 
-        console.log(`Attempting to fetch positions from: ${url}`);
-        setStatus("warn", "Fetching position...");
+        let text = "";
 
-        try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                if (response.status === 404) {
-                    throw new Error(`No positions found for material: ${w.join('')} vs ${b.join('')}. (File ${filename} missing)`);
-                }
-                throw new Error(`Network error: ${response.status} ${response.statusText}`);
-            }
+        // Check Cache
+        if (cachedFilename === filename && cachedPositions) {
+            console.log(`Using cached positions for: ${filename}`);
+            text = cachedPositions;
+        } else {
+            console.log(`Cache miss. Fetching positions from: ${url}`);
+            setStatus("warn", "Fetching position...");
 
-            const text = await response.text();
-            if (!text) throw new Error("Position file is empty.");
-
-            // 4. Calculate Record Details
-            const flatList = [
-                ...w.map(p => ({ type: p, color: 'w' })),
-                ...b.map(p => ({ type: p, color: 'b' }))
-            ];
-            const recordLength = flatList.length;
-
-            if (text.length % recordLength !== 0) {
-                console.warn(`File length (${text.length}) is not a multiple of record length (${recordLength}). Trimming end.`);
-            }
-
-            const totalRecords = Math.floor(text.length / recordLength);
-            if (totalRecords === 0) throw new Error("File contains no complete records.");
-
-            // 5. Pick Random Record
-            const randomIndex = Math.floor(Math.random() * totalRecords);
-            const startOffset = randomIndex * recordLength;
-            const record = text.substring(startOffset, startOffset + recordLength);
-
-            console.log(`Selected record #${randomIndex}: ${record}`);
-
-            // 6. Decode Record to Board/FEN
-            // ALPHABET index -> 0..63.
-            // 0 = a1, 1 = b1 ... 7 = h1, 8 = a2 ...
-            
-            const grid = Array(8).fill(null).map(() => Array(8).fill(""));
-
-            for (let i = 0; i < recordLength; i++) {
-                const char = record[i];
-                const val = ALPHABET.indexOf(char);
-                if (val === -1) throw new Error(`Invalid character '${char}' in record.`);
-
-                const file = val % 8;       // 0-7 (a-h)
-                const rank = Math.floor(val / 8); // 0-7 (1-8)
-
-                // Grid usually indexed [row][col] where row 0 is top (rank 8)
-                // row index = 7 - rank
-                const gridRow = 7 - rank;
-                const gridCol = file;
-
-                const pieceDef = flatList[i];
-                const pChar = pieceDef.type.toUpperCase();
-                grid[gridRow][gridCol] = (pieceDef.color === 'w' ? pChar : pChar.toLowerCase());
-            }
-
-            // 7. Build FEN String
-            let fenRows = grid.map(row => {
-                let empty = 0;
-                let str = "";
-                row.forEach(c => {
-                    if (c === "") empty++;
-                    else {
-                        if (empty > 0) str += empty;
-                        empty = 0;
-                        str += c;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        throw new Error(`No positions found for material: ${w.join('')} vs ${b.join('')}. (File ${filename} missing)`);
                     }
-                });
-                if (empty > 0) str += empty;
-                return str;
-            });
-            
-            const fen = fenRows.join("/") + " w - - 0 1";
-            return fen;
+                    throw new Error(`Network error: ${response.status} ${response.statusText}`);
+                }
 
-        } catch (e) {
-            console.error(e);
-            throw new Error(e.message);
+                text = await response.text();
+                if (!text) throw new Error("Position file is empty.");
+                
+                // Update Cache
+                cachedPositions = text;
+                cachedFilename = filename;
+
+            } catch (e) {
+                console.error(e);
+                throw new Error(e.message);
+            }
         }
+
+        // 4. Calculate Record Details
+        const flatList = [
+            ...w.map(p => ({ type: p, color: 'w' })),
+            ...b.map(p => ({ type: p, color: 'b' }))
+        ];
+        const recordLength = flatList.length;
+
+        if (text.length % recordLength !== 0) {
+            console.warn(`File length (${text.length}) is not a multiple of record length (${recordLength}). Trimming end.`);
+        }
+
+        const totalRecords = Math.floor(text.length / recordLength);
+        if (totalRecords === 0) throw new Error("File contains no complete records.");
+
+        // 5. Pick Random Record
+        const randomIndex = Math.floor(Math.random() * totalRecords);
+        const startOffset = randomIndex * recordLength;
+        const record = text.substring(startOffset, startOffset + recordLength);
+
+        console.log(`Selected record #${randomIndex}: ${record}`);
+
+        // 6. Decode Record to Board/FEN
+        // ALPHABET index -> 0..63.
+        // 0 = a1, 1 = b1 ... 7 = h1, 8 = a2 ...
+        
+        const grid = Array(8).fill(null).map(() => Array(8).fill(""));
+
+        for (let i = 0; i < recordLength; i++) {
+            const char = record[i];
+            const val = ALPHABET.indexOf(char);
+            if (val === -1) throw new Error(`Invalid character '${char}' in record.`);
+
+            const file = val % 8;       // 0-7 (a-h)
+            const rank = Math.floor(val / 8); // 0-7 (1-8)
+
+            // Grid usually indexed [row][col] where row 0 is top (rank 8)
+            // row index = 7 - rank
+            const gridRow = 7 - rank;
+            const gridCol = file;
+
+            const pieceDef = flatList[i];
+            const pChar = pieceDef.type.toUpperCase();
+            grid[gridRow][gridCol] = (pieceDef.color === 'w' ? pChar : pChar.toLowerCase());
+        }
+
+        // 7. Build FEN String
+        let fenRows = grid.map(row => {
+            let empty = 0;
+            let str = "";
+            row.forEach(c => {
+                if (c === "") empty++;
+                else {
+                    if (empty > 0) str += empty;
+                    empty = 0;
+                    str += c;
+                }
+            });
+            if (empty > 0) str += empty;
+            return str;
+        });
+        
+        const fen = fenRows.join("/") + " w - - 0 1";
+        return fen;
     }
 
     // --- Helpers ---
