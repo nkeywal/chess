@@ -303,21 +303,17 @@
 
       <div class="card sideCard">
         
-        <details id="setupDetails">
-          <summary id="setupSummary">⚙️ ♚♜ vs ♔♙</summary>
-          <div class="detailsBody" style="flex-direction:column; align-items:center;">
-             <select id="endgameSelect" style="padding:8px; border-radius:8px; background:var(--btn); color:var(--text); border:1px solid var(--border); font-size:1.4rem;">
+        <div style="display:flex; justify-content:center; align-items:center; gap: 10px; padding: 4px 0;">
+             <select id="endgameSelect" style="flex-grow:1; padding:10px; border-radius:14px; background:var(--btn); color:var(--text); border:1px solid var(--border); font-size:1.4rem; cursor:pointer;">
                  <option value="KP_K">♚♟ vs ♔</option>
                  <option value="K_KP">♚ vs ♔♙</option>
                  <option value="KP_KR">♚♟ vs ♔♖</option>
                  <option value="KR_KP">♚♜ vs ♔♙</option>
                  <option value="KRP_KR">♚♜♟ vs ♔♖</option>
              </select>
-          </div>
-        </details>
-
-        <div class="streak-display">
-            Streak: <strong id="streak">0</strong>
+             <div class="streak-card" style="white-space:nowrap; padding: 10px 14px; border-radius:14px; border:1px solid var(--border); background:rgba(255,255,255,0.02); font-size:14px; display:flex; align-items:center; justify-content:center;">
+                Streak: <strong id="streak" style="margin-left:5px; font-size: 1.1rem;">0</strong>
+             </div>
         </div>
 
         <div id="status" class="status">Initializing...</div>
@@ -459,17 +455,7 @@
             const sel = document.getElementById("endgameSelect");
             const val = sel.value;
             localStorage.setItem("endgame-trainer-selection", val);
-            updateSummaryLabel();
         } catch(e) { console.warn("Could not save settings", e); }
-    }
-
-    function updateSummaryLabel() {
-        const sel = document.getElementById("endgameSelect");
-        const summary = document.getElementById("setupSummary");
-        if (sel && summary) {
-            const selectedOption = sel.options[sel.selectedIndex];
-            summary.textContent = "⚙️ " + selectedOption.textContent;
-        }
     }
 
     function loadSettings() {
@@ -479,7 +465,6 @@
                 const sel = document.getElementById("endgameSelect");
                 if (sel) {
                     sel.value = val;
-                    updateSummaryLabel();
                 }
             }
         } catch(e) { console.warn("Could not load settings", e); }
@@ -487,7 +472,6 @@
     
     // Init Persistence
     loadSettings();
-    updateSummaryLabel();
     const sel = document.getElementById('endgameSelect');
     if(sel) sel.addEventListener('change', () => {
         saveSettings();
@@ -539,7 +523,7 @@
             // normalize wdl from category if needed handled in fetchTablebase
             
             updateLinks(initialFen);
-            setStatus(null, "Your Turn: Guess result (Win/Draw/Loss) or Play a move.");
+            setStatus(null, "Your Turn: Guess result or Play a move.");
             setGuessEnabled(true);
             gameActive = true;
             isUserTurn = true;
