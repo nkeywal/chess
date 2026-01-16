@@ -1020,18 +1020,11 @@
         if (moves.length === 0) return false;
         if (typeof data.wdl !== 'number') return false;
 
-        // Trivialité immédiate
-        // si dtz présent : abs(dtz) < 2
-        if (data.dtz !== undefined && data.dtz !== null) {
-            if (Math.abs(data.dtz) < 2) return false;
-        } 
-        // sinon si dtm présent : abs(dtm) < 4
-        else if (data.dtm !== undefined && data.dtm !== null) {
-            if (Math.abs(data.dtm) < 4) return false;
-        } 
-        // sinon rejet
-        else {
-            return false;
+        // Trivialité immédiate (Wins/Losses only)
+        if (data.wdl !== 0) {
+            if (data.dtm !== undefined && data.dtm !== null) {
+                if (Math.abs(data.dtm) < 4) return false;
+            }
         }
 
         return true;
