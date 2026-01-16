@@ -661,23 +661,20 @@
         drawOutcomeArrows(currentTbData);
         
         const actualWdl = currentTbData.wdl;
-        // Map category to wdl if needed, but fetchTablebase handles it
         
         let correct = (guessWdl === actualWdl);
         
         if (correct) {
             streak++;
             updateStreak();
-            setStatus("ok", `Correct! It is a ${wdlToString(actualWdl)}. Keep playing if you want.`);
-            setGuessEnabled(false); // Disable buttons but allow play
-            // el.btnPlayAgain.classList.remove("hidden");
-            el.guessControls.classList.add("hidden");
+            setStatus("ok", `Correct! It is a ${wdlToString(actualWdl)}. Keep playing.`);
         } else {
             streak = 0;
             updateStreak();
-            setStatus("bad", `Wrong. It is a ${wdlToString(actualWdl)}.`);
-            endGame(false, `Wrong. It is a ${wdlToString(actualWdl)}.`);
+            setStatus("bad", `Wrong. It is a ${wdlToString(actualWdl)}. You can still play the position.`);
         }
+        setGuessEnabled(false);
+        el.guessControls.classList.add("hidden");
     }
 
     function handleGameOver() {
