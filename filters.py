@@ -45,6 +45,144 @@ def filter_tb_generic(board: chess.Board, tb: Mapping[str, Any]) -> bool:
 
 
 
+def filter_notb_krp_vs_kr(board: chess.Board) -> bool:
+    """
+    KRP vs KR no-TB specific filter (White to move):
+
+    - White pawn: files b..g (file index 1..6) and advanced (human ranks 4/5/6 => 0-based ranks 3/4/5).
+    - Combat zone: both kings close to the pawn (Chebyshev distance <= 3).
+    - Activity: no immediate captures for White on move 1 (no legal capture moves).
+    - White king not in check.
+    - Black rook attacks no White piece (king/rook/pawn).
+    - If black king attacks the pawn (Chebyshev distance <= 1), then the pawn is defended by White king or White rook.
+    """
+    wk = board.king(chess.WHITE)
+    bk = board.king(chess.BLACK)
+    wp = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
+    wr = next(iter(board.pieces(chess.ROOK, chess.WHITE)))
+    br = next(iter(board.pieces(chess.ROOK, chess.BLACK)))
+
+    pf, pr = chess.square_file(wp), chess.square_rank(wp)
+
+    # Pawn file b..g (1..6)
+    if pf < 1 or pf > 6:
+        return False
+
+    # Pawn advanced: human ranks 5/6 -> 0-based 4/5
+    if pr not in (4, 5):
+        return False
+
+    # White king not in check.
+    if board.is_check():
+        return False
+
+    # Combat zone: both kings within Chebyshev distance <= 3 from the pawn.
+    wkf, wkr = chess.square_file(wk), chess.square_rank(wk)
+    bkf, bkr = chess.square_file(bk), chess.square_rank(bk)
+
+    if max(abs(wkf - pf), abs(wkr - pr)) > 2:
+        return False
+    if max(abs(bkf - pf), abs(bkr - pr)) > 3:
+        return False
+
+    # Activity: no immediate captures for White.
+    for mv in board.legal_moves:
+        if board.is_capture(mv):
+            return False
+
+    # Black rook attacks no White piece.
+    br_attacks = board.attacks(br)
+    for sq in (wk, wr, wp):
+        if (br_attacks >> sq) & 1:
+            return False
+
+    # If black king attacks the pawn, pawn must be defended by white king or white rook.
+    if max(abs(bkf - pf), abs(bkr - pr)) <= 1:
+        defended_by_wk = max(abs(wkf - pf), abs(wkr - pr)) <= 1
+        defended_by_wr = ((board.attacks(wr) >> wp) & 1) == 1
+        if not (defended_by_wk or defended_by_wr):
+            return False
+
+    return True
+
+
+
+###################################"""
+# --- filters.py additions for: White K vs Black KP ---
+
+
+def filter_notb_k_vs_kp(board: chess.Board) -> bool:
+    """
+    K vs KP no-TB specific filter (White to move):
+
+    - No capture on move 1: White king cannot capture the pawn immediately.
+    - Advanced pawn: Black pawn must be on 0-based ranks 2/3/4 (human ranks 3/4/5).
+    - Proximity: White king must be close to the pawn: Chebyshev distance <= 2.
+    - Selection: Chebyshev distance(bK, pawn) must not be greater than Chebyshev distance(wK, pawn).
+    - Extra exclusion: if pawn is on rank index 2, and White king is on rank index 0 or 1,
+      and White king file is adjacent to the pawn file, reject.
+    """
+    wk = board.king(chess.WHITE)
+    bk = board.king(chess.BLACK)
+    p = next(iter(board.pieces(chess.PAWN, chess.BLACK)))
+
+    pr = chess.square_rank(p)
+    if pr not in (2, 3, 4):
+        return False
+
+    pf = chess.square_file(p)
+    wkf, wkr = chess.square_file(wk), chess.square_rank(wk)
+    bkf, bkr = chess.square_file(bk), chess.square_rank(bk)
+
+    if pr == 2 and wkr in (0, 1) and abs(wkf - pf) == 1:
+        return False
+
+    d_wk_p = max(abs(wkf - pf), abs(wkr - pr))
+    d_bk_p = max(abs(bkf - pf), abs(bkr - pr))
+
+    if d_wk_p > 2:
+        return False
+
+    if d_wk_p <= 1:
+        return False
+
+    if d_bk_p > d_wk_p:
+        return False
+
+    return True
+
+
+
+def filter_tb_k_vs_kp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
+    """
+    K vs KP TB-specific filter (White POV outcomes):
+
+    - If draw (tb["wdl"] == 0): keep only if exactly one first move draws.
+    - If White loss (tb["wdl"] == -1): keep only if White king rank <= pawn rank
+      (ranks decrease towards 0 for White here, so king is "lower" or same as the pawn towards promotion).
+    - If White win (tb["wdl"] == +1): keep the position.
+    """
+    wdl = tb["wdl"]
+
+    if wdl == 0:
+        drawing = 0
+        for m in tb["moves"]:
+            if m["wdl"] == 0:
+                drawing += 1
+                if drawing > 1:
+                    return False
+        return drawing == 1
+
+    if wdl == -1:
+        wk = board.king(chess.WHITE)
+        p = next(iter(board.pieces(chess.PAWN, chess.BLACK)))
+        return chess.square_rank(wk) <= chess.square_rank(p)
+
+    return True
+
+
+
+################################################""
 
 # --- filters.py additions for: White KP vs Black K ---
 
