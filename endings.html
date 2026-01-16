@@ -369,6 +369,9 @@
     const ARROW_DRAW = { ...ARROW_TYPE.default, class: "arrow-draw" };
     const ARROW_LOSS = { ...ARROW_TYPE.default, class: "arrow-loss" };
 
+    const ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-";
+    const PIECE_ORDER = "KQRBNP";
+
     console.log("Imports loaded");
     document.getElementById("status").textContent = "Imports loaded...";
     
@@ -721,551 +724,101 @@
         if(!w.includes('K')) w.push('K');
         if(!b.includes('K')) b.push('K');
 
-        // 2. Identify Scenario
-        const allPieces = [...w, ...b].map(p => p.toUpperCase()).sort().join('');
+        // 2. Sort Pieces to match file format (K, Q, R, B, N, P)
+        const sortOrder = (p) => PIECE_ORDER.indexOf(p);
+        w.sort((a, b) => sortOrder(a) - sortOrder(b));
+        b.sort((a, b) => sortOrder(a) - sortOrder(b));
 
-        // K+R vs K+P => K,R,K,P => KKP R
-        let scenario = null;
-        let preferredResult = null;
-        let maxPreferredAttempts = 0;
+        // 3. Construct File Path
+        const filename = `${w.join('')}_${b.join('')}.txt`;
+        const url = `out/${filename}`; // Relative path
 
-        if (allPieces === "KKPR") {
-            scenario = "KR_KP";
-            preferredResult = 0; // Prefer Draw
-            maxPreferredAttempts = 5;
-        }
+        console.log(`Attempting to fetch positions from: ${url}`);
+        setStatus("warn", "Fetching position...");
 
-        let attempts = 0;
-        const MAX_ATTEMPTS = 2000;
-        let validCandidatesFound = 0;
-        let bestFallbackFen = null;
-        let maxDtm = -1;
-        let rateLimited = false;
-        
-        const stats = { totalGenerated: 0, passedLocalGeneric: 0, passedLocalSpecific: 0, tablebaseFetched: 0, passedTbGeneric: 0, passedTbSpecific: 0, finalSuccess: 0 };
-
-        while (attempts < MAX_ATTEMPTS) {
-            attempts++;
-            stats.totalGenerated++;
-            
-            // --- Step 1: Generation ---
-            let fen;
-
-            if (scenario === "KR_KP") {
-                fen = randomPlacement_KR_KP(w, b); // Specialized placement with pieces
-            } else {
-                fen = randomPlacement(w, b); // Generic placement
-            }
-            
-            const ch = new Chess();
-            try {
-                ch.load(fen);
-            } catch (e) { continue; }
-
-            // --- Step 2: Generic Pre-TB Validation ---
-            if (!validateGenericPreTB(ch)) continue;
-            stats.passedLocalGeneric++;
-
-            // --- Step 3: Specific Pre-TB Validation ---
-            if (scenario === "KR_KP") {
-                if (!validateSpecificPreTB_KR_KP(ch)) continue;
-            }
-            stats.passedLocalSpecific++;
-
-            // --- Step 4: Tablebase Fetch ---
-            let tbData;
-            try {
-                tbData = await fetchTablebase(fen);
-                stats.tablebaseFetched++;
-            } catch (e) { 
-                if (e.message.includes("429")) {
-                    console.warn("Lichess API Rate Limit (429) reached. Stopping search.");
-                    rateLimited = true;
-                    break; // Stop trying, use fallback if available
-                }
-                continue; 
-            }
-
-            // --- Step 5: Generic Post-TB Validation ---
-            if (!validateGenericPostTB(ch, tbData)) continue;
-            stats.passedTbGeneric++;
-
-            // --- Step 6: Specific Post-TB Validation ---
-            if (scenario === "KR_KP") {
-                if (!validateSpecificPostTB_KR_KP(ch, tbData)) continue;
-            }
-            stats.passedTbSpecific++;
-
-            // --- Success / Preference Logic ---
-            // Update Best Fallback (Max DTM)
-            const currentDtm = tbData.dtm !== undefined && tbData.dtm !== null ? Math.abs(tbData.dtm) : 0;
-            if (currentDtm > maxDtm) {
-                maxDtm = currentDtm;
-                bestFallbackFen = fen;
-            }
-
-            if (preferredResult !== null) {
-                if (tbData.wdl === preferredResult) {
-                    stats.finalSuccess++;
-                    console.log("Generation Stats (Perfect Match):", stats);
-                    return fen; // Perfect match
-                } else {
-                    // If we haven't found our preferred result yet, but we've tried many times,
-                    // accept the best fallback so far.
-                    if (attempts > 1000) {
-                         stats.finalSuccess++;
-                         console.log(`Generation Stats (Fallback, Max DTM=${maxDtm}):`, stats);
-                         return bestFallbackFen; 
-                    }
-                    // Else loop again to try finding preferred result
-                    continue; 
-                }
-            }
-
-            stats.finalSuccess++;
-            console.log("Generation Stats:", stats);
-            return fen;
-        }
-
-        console.log("Generation Stats (End):", stats);
-        if (bestFallbackFen) {
-            console.log(`Returning best fallback with DTM=${maxDtm}`);
-            return bestFallbackFen;
-        }
-
-        const msg = rateLimited 
-            ? "Could not generate a valid position (Lichess API Rate Limit reached)."
-            : `Could not generate a valid position after ${MAX_ATTEMPTS} attempts.`;
-        throw new Error(msg);
-    }
-
-    // --- Specialized Placement for KR vs KP (Updated Policy) ---
-    function randomPlacement_KR_KP(wPieces, bPieces) {
-        const files = "abcdefgh";
-        const grid = Array(8).fill(null).map(() => Array(8).fill(""));
-        const used = new Set();
-        
-        // Determine sides based on input
-        let pawnColor, rookColor;
-        
-        const has = (list, char) => list.some(p => p.toUpperCase() === char);
-        const wHasR = has(wPieces, 'R');
-        const wHasP = has(wPieces, 'P');
-        
-        if (wHasR && !wHasP) {
-             // White = Rook
-             pawnColor = 'b';
-             rookColor = 'w';
-        } else if (wHasP && !wHasR) {
-             // White = Pawn
-             pawnColor = 'w';
-             rookColor = 'b';
-        } else {
-             // Fallback (e.g. if generic or mixed)
-             const isSchemaA = Math.random() < 0.5;
-             pawnColor = isSchemaA ? 'b' : 'w';
-             rookColor = isSchemaA ? 'w' : 'b';
-        }
-        
-        const kpColor = pawnColor;
-        const krColor = rookColor;
-
-        // 1. Place Pawn (P)
-        // Rang: 6,7 (W) or 2,3 (B)
-        let pRank;
-        if (pawnColor === 'w') {
-            pRank = Math.random() < 0.5 ? 6 : 7;
-        } else {
-            pRank = Math.random() < 0.5 ? 2 : 3;
-        }
-
-        // Fichier: 50% {a,h}, 50% {b-g}
-        let pFile;
-        if (Math.random() < 0.5) {
-            // Edge (a, h) -> indices 0, 7
-            pFile = Math.random() < 0.5 ? 0 : 7;
-        } else {
-            // Middle (b-g) -> indices 1-6
-            pFile = Math.floor(Math.random() * 6) + 1;
-        }
-        
-        const pSq = files[pFile] + pRank;
-        used.add(pSq);
-        grid[8 - pRank][pFile] = (pawnColor === 'w' ? 'P' : 'p');
-
-        // 2. Place Kp (Pawn's King)
-        // dist(Kp, P) <= 2
-        const kpSq = getRandomSquareNear(pFile, pRank, 2, used);
-        if (!kpSq) return randomPlacement_KR_KP(); // Retry
-        used.add(kpSq.sq);
-        grid[8 - kpSq.r][kpSq.f] = (kpColor === 'w' ? 'K' : 'k');
-
-        // 3. Place Kr (Rook's King)
-        // 3 <= dist(Kr, P) <= 6
-        const krSq = getRandomSquareRing(pFile, pRank, 3, 6, used);
-        if (!krSq) return randomPlacement_KR_KP(); // Retry
-        used.add(krSq.sq);
-        grid[8 - krSq.r][krSq.f] = (krColor === 'w' ? 'K' : 'k');
-
-        // 4. Place Rook (R)
-        // Any free square
-        const validRookSqs = [];
-        for(let r=1; r<=8; r++) {
-            for(let f=0; f<8; f++) {
-                const sq = files[f] + r;
-                if (!used.has(sq)) {
-                    validRookSqs.push({r, f, sq});
-                }
-            }
-        }
-        
-        if (validRookSqs.length === 0) return randomPlacement_KR_KP(); // Retry
-
-        const rPlace = validRookSqs[Math.floor(Math.random() * validRookSqs.length)];
-        grid[8 - rPlace.r][rPlace.f] = (rookColor === 'w' ? 'R' : 'r');
-
-        // Build FEN
-        let fenRows = grid.map(row => {
-            let empty = 0;
-            let str = "";
-            row.forEach(c => {
-                if (c === "") empty++;
-                else {
-                    if (empty > 0) str += empty;
-                    empty = 0;
-                    str += c;
-                }
-            });
-            if (empty > 0) str += empty;
-            return str;
-        });
-        
-        return fenRows.join("/") + " w - - 0 1";
-    }
-
-    // Helper for specialized placement
-    function getRandomSquareNear(cenF, cenR, maxDist, usedSet) {
-        const candidates = [];
-        const files = "abcdefgh";
-        for (let r=1; r<=8; r++) {
-            for (let f=0; f<8; f++) {
-                const dist = Math.max(Math.abs(r - cenR), Math.abs(f - cenF));
-                if (dist > 0 && dist <= maxDist) {
-                    const sq = files[f] + r;
-                    if (!usedSet.has(sq)) candidates.push({r, f, sq});
-                }
-            }
-        }
-        if (!candidates.length) return null;
-        return candidates[Math.floor(Math.random() * candidates.length)];
-    }
-
-    function getRandomSquareRing(cenF, cenR, minDist, maxDist, usedSet) {
-        const candidates = [];
-        const files = "abcdefgh";
-        for (let r=1; r<=8; r++) {
-            for (let f=0; f<8; f++) {
-                const dist = Math.max(Math.abs(r - cenR), Math.abs(f - cenF));
-                if (dist >= minDist && dist <= maxDist) {
-                    const sq = files[f] + r;
-                    if (!usedSet.has(sq)) candidates.push({r, f, sq});
-                }
-            }
-        }
-        if (!candidates.length) return null;
-        return candidates[Math.floor(Math.random() * candidates.length)];
-    }
-
-
-    // --- Layer 1: Spec — règles génériques (universelles) ---
-
-    function validateGenericPreTB(ch) {
-        // 1.1 Légalité
-        if (ch.turn() !== 'w') return false; 
-        
-        const board = ch.board();
-        for (let c = 0; c < 8; c++) {
-            if (board[0][c] && board[0][c].type === 'p') return false;
-            if (board[7][c] && board[7][c].type === 'p') return false;
-        }
-
-        // White in check?
-        if (ch.inCheck()) return false; 
-        
-        // Black in check? (Flip turn)
-        const fenParts = ch.fen().split(' ');
-        fenParts[1] = 'b';
-        const chB = new Chess();
         try {
-            chB.load(fenParts.join(' '));
-            if (chB.inCheck()) return false;
-        } catch(e) { return false; }
-
-        // 1.2 Structure (universel, peu contraignant)
-        // mobilityW < 3
-        const mobW = ch.moves().length;
-        if (mobW < 3) return false;
-
-        // mobilityB < 3
-        const mobB = chB.moves().length;
-        if (mobB < 3) return false;
-
-        return true;
-    }
-
-    function validateGenericPostTB(ch, data) {
-        // 1.3 Tablebase minimale (1 appel)
-        
-        const moves = data.moves || [];
-        if (moves.length === 0) return false;
-        if (typeof data.wdl !== 'number') return false;
-
-        // Trivialité immédiate (Wins/Losses only)
-        if (data.wdl !== 0) {
-            if (data.dtm !== undefined && data.dtm !== null) {
-                if (Math.abs(data.dtm) < 4) return false;
-            }
-        }
-
-        return true;
-    }
-
-    // --- Layer 2: Spec — règles spécifiques K+R vs K+P ---
-
-    function validateSpecificPreTB_KR_KP(ch) {
-        // 2.2 Contraintes d’acceptation additionnelles (K+R vs K+P)
-        const pieces = getPieceLocations(ch);
-        const pPawn = pieces.find(p => p.type === 'p');
-        const pRook = pieces.find(p => p.type === 'r');
-        const pKingR = pieces.find(p => p.type === 'k' && p.color === pRook.color);
-        const pKingP = pieces.find(p => p.type === 'k' && p.color === pPawn.color); // Pawn's king
-        
-        if (!pPawn || !pRook || !pKingR || !pKingP) return false;
-
-        // Pas d'alignement Roi Faible / Tour adverse (même rangée ou colonne)
-        if (pKingP.square[0] === pRook.square[0] || pKingP.square[1] === pRook.square[1]) {
-            return false;
-        }
-
-        // Règle d'opposition : Si Rois alignés (même rang/colonne), distance != 2 (pas d'opposition directe à 1 case)
-        if (pKingR.square[0] === pKingP.square[0] || pKingR.square[1] === pKingP.square[1]) {
-             const distKings = getChebyshevDistance(pKingR.square, pKingP.square);
-             if (distKings === 2) return false;
-        }
-
-        // Règle de liberté du Roi Faible : Au moins 2 cases de fuite
-        let flightSquares = 0;
-        const kpFile = pKingP.square.charCodeAt(0) - 97; // 0-7
-        const kpRank = 8 - parseInt(pKingP.square[1]);   // 0-7 (matrix coords)
-        const pawnColor = pKingP.color;
-        const oppColor = pawnColor === 'w' ? 'b' : 'w';
-
-        for (let dx = -1; dx <= 1; dx++) {
-            for (let dy = -1; dy <= 1; dy++) {
-                if (dx === 0 && dy === 0) continue;
-                const nx = kpFile + dx;
-                const ny = kpRank + dy;
-                
-                if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8) {
-                    const destSq = "abcdefgh"[nx] + (8 - ny);
-                    const piece = ch.get(destSq);
-                    
-                    // Case libre ou prenable (non amie)
-                    if (!piece || piece.color !== pawnColor) {
-                        // Non attaquée par l'adversaire
-                        if (!ch.isAttacked(destSq, oppColor)) {
-                            flightSquares++;
-                        }
-                    }
+            const response = await fetch(url);
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error(`No positions found for material: ${w.join('')} vs ${b.join('')}. (File ${filename} missing)`);
                 }
+                throw new Error(`Network error: ${response.status} ${response.statusText}`);
             }
+
+            const text = await response.text();
+            if (!text) throw new Error("Position file is empty.");
+
+            // 4. Calculate Record Details
+            const flatList = [
+                ...w.map(p => ({ type: p, color: 'w' })),
+                ...b.map(p => ({ type: p, color: 'b' }))
+            ];
+            const recordLength = flatList.length;
+
+            if (text.length % recordLength !== 0) {
+                console.warn(`File length (${text.length}) is not a multiple of record length (${recordLength}). Trimming end.`);
+            }
+
+            const totalRecords = Math.floor(text.length / recordLength);
+            if (totalRecords === 0) throw new Error("File contains no complete records.");
+
+            // 5. Pick Random Record
+            const randomIndex = Math.floor(Math.random() * totalRecords);
+            const startOffset = randomIndex * recordLength;
+            const record = text.substring(startOffset, startOffset + recordLength);
+
+            console.log(`Selected record #${randomIndex}: ${record}`);
+
+            // 6. Decode Record to Board/FEN
+            // ALPHABET index -> 0..63.
+            // 0 = a1, 1 = b1 ... 7 = h1, 8 = a2 ...
+            
+            const grid = Array(8).fill(null).map(() => Array(8).fill(""));
+
+            for (let i = 0; i < recordLength; i++) {
+                const char = record[i];
+                const val = ALPHABET.indexOf(char);
+                if (val === -1) throw new Error(`Invalid character '${char}' in record.`);
+
+                const file = val % 8;       // 0-7 (a-h)
+                const rank = Math.floor(val / 8); // 0-7 (1-8)
+
+                // Grid usually indexed [row][col] where row 0 is top (rank 8)
+                // row index = 7 - rank
+                const gridRow = 7 - rank;
+                const gridCol = file;
+
+                const pieceDef = flatList[i];
+                const pChar = pieceDef.type.toUpperCase();
+                grid[gridRow][gridCol] = (pieceDef.color === 'w' ? pChar : pChar.toLowerCase());
+            }
+
+            // 7. Build FEN String
+            let fenRows = grid.map(row => {
+                let empty = 0;
+                let str = "";
+                row.forEach(c => {
+                    if (c === "") empty++;
+                    else {
+                        if (empty > 0) str += empty;
+                        empty = 0;
+                        str += c;
+                    }
+                });
+                if (empty > 0) str += empty;
+                return str;
+            });
+            
+            const fen = fenRows.join("/") + " w - - 0 1";
+            return fen;
+
+        } catch (e) {
+            console.error(e);
+            throw new Error(e.message);
         }
-        if (flightSquares < 2) return false;
-
-        // Règle de distance Tour-Roi Faible : dist(R, Kp) > 1
-        const dRKp = getChebyshevDistance(pRook.square, pKingP.square);
-        if (dRKp <= 1) return false;
-
-        // Si la tour est en prise, rejette 90% des positions
-        const rColor = pRook.color;
-        const opponentColor = rColor === 'w' ? 'b' : 'w';
-        if (ch.isAttacked(pRook.square, opponentColor)) {
-            if (Math.random() < 0.9) return false;
-        }
-
-        // Éloignement du Roi Fort (Distance >= 4)
-        const dKrP = getChebyshevDistance(pKingR.square, pPawn.square);
-        if (dKrP < 4) return false;
-
-        // Capture immédiate du pion par le camp de la tour (roi ou tour)
-        const rookSide = pRook.color;
-        if (ch.turn() === rookSide) {
-             const moves = ch.moves({ verbose: true });
-             if (moves.some(m => m.captured === 'p')) return false;
-        }
-
-        // Promotion immédiate du pion par le camp du pion
-        const pawnSide = pPawn.color;
-        if (ch.turn() === pawnSide) {
-             const moves = ch.moves({ verbose: true });
-             if (moves.some(m => m.promotion)) return false;
-        }
-
-        return true;
     }
-
-    function validateSpecificPostTB_KR_KP(ch, data) {
-        // 2.3 Tablebase additionnelle (K+R vs K+P)
-
-        // Trivialité modérée
-        // si dtz présent : abs(dtz) < 4
-        if (data.dtz !== undefined && data.dtz !== null) {
-            if (Math.abs(data.dtz) < 4) return false;
-        } 
-        // sinon si dtm présent : abs(dtm) < 6
-        else if (data.dtm !== undefined && data.dtm !== null) {
-            if (Math.abs(data.dtm) < 6) return false;
-        } 
-        // sinon rejet
-        else {
-            return false;
-        }
-
-        return true;
-    }
-
 
     // --- Helpers ---
-
-    function randomPlacement(wPieces, bPieces) {
-        const files = "abcdefgh";
-        const used = new Set();
-        const getSq = () => files[Math.floor(Math.random()*8)] + (Math.floor(Math.random()*8)+1);
-        
-        let list = [
-            ...wPieces.map(t => ({t: t.toLowerCase(), c: 'w'})),
-            ...bPieces.map(t => ({t: t.toLowerCase(), c: 'b'}))
-        ];
-
-        const board = [];
-        
-        for(let p of list) {
-             let sq;
-             let tries = 0;
-             while(tries < 100) {
-                 sq = getSq();
-                 if(!used.has(sq)) {
-                     // Basic Pawn constraints (no Rank 1 or 8)
-                     // Although validateGenericPre checks this, doing it here saves iterations
-                     if (p.t === 'p') {
-                         if (sq[1] === '1' || sq[1] === '8') { tries++; continue; }
-                     }
-                     break;
-                 }
-                 tries++;
-             }
-             if(sq) {
-                 used.add(sq);
-                 board.push({sq, ...p});
-             }
-        }
-        
-        // Build FEN
-        const grid = Array(8).fill(null).map(() => Array(8).fill(""));
-        board.forEach(p => {
-            const f = files.indexOf(p.sq[0]);
-            const r = 8 - parseInt(p.sq[1]);
-            grid[r][f] = (p.c === 'w') ? p.t.toUpperCase() : p.t.toLowerCase();
-        });
-        
-        let fenRows = grid.map(row => {
-            let empty = 0;
-            let str = "";
-            row.forEach(c => {
-                if (c === "") empty++;
-                else {
-                    if (empty > 0) str += empty;
-                    empty = 0;
-                    str += c;
-                }
-            });
-            if (empty > 0) str += empty;
-            return str;
-        });
-        
-        return fenRows.join("/") + " w - - 0 1";
-    }
-
-    function getPieceLocations(ch) {
-        const pieces = [];
-        const board = ch.board();
-        const files = "abcdefgh";
-        for (let r=0; r<8; r++) {
-            for (let c=0; c<8; c++) {
-                if (board[r][c]) {
-                    const sq = files[c] + (8-r);
-                    pieces.push({ ...board[r][c], square: sq, r: 8-r, f: c+1 }); // r: 1-8, f: 1-8
-                }
-            }
-        }
-        return pieces;
-    }
-
-    function getChebyshevDistance(sq1, sq2) {
-        const f1 = sq1.charCodeAt(0);
-        const r1 = parseInt(sq1[1]);
-        const f2 = sq2.charCodeAt(0);
-        const r2 = parseInt(sq2[1]);
-        return Math.max(Math.abs(f1 - f2), Math.abs(r1 - r2));
-    }
-
-    function getBoundingBoxArea(pieces) {
-        if (pieces.length === 0) return 0;
-        let minR = 9, maxR = 0, minF = 9, maxF = 0;
-        pieces.forEach(p => {
-            if (p.r < minR) minR = p.r;
-            if (p.r > maxR) maxR = p.r;
-            if (p.f < minF) minF = p.f;
-            if (p.f > maxF) maxF = p.f;
-        });
-        const w = (maxF - minF + 1);
-        const h = (maxR - minR + 1);
-        return w * h;
-    }
-
-    function getRank(sq) {
-        return parseInt(sq[1]);
-    }
-
-    function isCaptureOrPromotion(ch, uci) {
-        const from = uci.slice(0, 2);
-        const to = uci.slice(2, 4);
-        const promo = uci.length > 4;
-        if (promo) return true;
-        
-        const piece = ch.get(to);
-        if (piece) return true; // Capture
-        
-        // En passant?
-        if (ch.get(from).type === 'p' && from[0] !== to[0] && !piece) return true;
-        
-        return false;
-    }
-
-    function isNaturalMove(ch, uci) {
-        // Natural = Capture OR Promotion OR Check
-        if (isCaptureOrPromotion(ch, uci)) return true;
-        
-        // Check?
-        // We need to see if the move gives check.
-        // Expensive way: make move, check inCheck, undo.
-        // Efficient way: check SAN from move generation or just do it.
-        const temp = new Chess(ch.fen());
-        const m = temp.move({ from: uci.slice(0,2), to: uci.slice(2,4), promotion: uci.slice(4) || undefined });
-        if (m && m.san.includes('+')) return true;
-
-        return false;
-    }
 
     function clearArrows() {
         if (typeof board.removeArrows === "function") board.removeArrows();
