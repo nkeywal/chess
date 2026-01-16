@@ -107,6 +107,43 @@ def filter_notb_krp_vs_kr(board: chess.Board) -> bool:
 
 
 
+
+def filter_tb_krp_vs_kr(board: chess.Board, tb: Mapping[str, Any]) -> bool:
+    """
+    KRP vs KR TB-specific filter (White POV outcomes):
+
+    - Reject White losses.
+    - If White wins: exactly one first move must also be a win.
+    - If draw: keep only if the white pawn is on the 6th or 7th rank (human),
+      i.e. 0-based rank in {5, 6}.
+    """
+    wdl = tb["wdl"]
+    if wdl < 0:
+        return False
+
+    if wdl > 0:
+        winning = 0
+        for m in tb["moves"]:
+            if m["wdl"] == 1:
+                winning += 1
+                if winning > 1:
+                    return False
+        return winning == 1
+
+    # Draw case.
+    wp = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
+    return chess.square_rank(wp) in (5, 6)
+
+
+
+
+
+
+
+
+
+
+
 ###################################"""
 # --- filters.py additions for: White K vs Black KP ---
 
