@@ -304,29 +304,13 @@
       <div class="card sideCard">
         
         <details id="setupDetails">
-          <summary>⚙️ Setup Pieces</summary>
-          <div class="detailsBody">
-            <div class="piece-group">
-                <strong>White</strong>
-                <label><input type="checkbox" name="white-pieces" value="K" checked disabled> King</label>
-                <label><input type="checkbox" name="white-pieces" value="Q"> Queen</label>
-                <label><input type="checkbox" name="white-pieces" value="R"> Rook</label>
-                <label><input type="checkbox" name="white-pieces" value="B"> Bishop</label>
-                <label><input type="checkbox" name="white-pieces" value="N"> Knight</label>
-                <label><input type="checkbox" name="white-pieces" value="P" checked> Pawn</label>
-                <label><input type="checkbox" name="white-pieces" value="P"> 2nd Pawn</label>
-            </div>
-            <div class="piece-group">
-                <strong>Black</strong>
-                <label><input type="checkbox" name="black-pieces" value="K" checked disabled> King</label>
-                <label><input type="checkbox" name="black-pieces" value="Q"> Queen</label>
-                <label><input type="checkbox" name="black-pieces" value="R" checked> Rook</label>
-                <label><input type="checkbox" name="black-pieces" value="B"> Bishop</label>
-                <label><input type="checkbox" name="black-pieces" value="N"> Knight</label>
-                <label><input type="checkbox" name="black-pieces" value="P"> Pawn</label>
-                <label><input type="checkbox" name="black-pieces" value="P"> 2nd Pawn</label>
-            </div>
-            <div style="width:100%; text-align:center; font-size:0.8rem; color:var(--muted); margin-top:5px;">Max 7 pieces total.</div>
+          <summary id="setupSummary">⚙️ ♚♜ vs ♔♙</summary>
+          <div class="detailsBody" style="flex-direction:column; align-items:center;">
+             <select id="endgameSelect" style="padding:8px; border-radius:8px; background:var(--btn); color:var(--text); border:1px solid var(--border); font-size:1.4rem;">
+                 <option value="KP_K">♚♟ vs ♔</option>
+                 <option value="KP_KR">♚♟ vs ♔♖</option>
+                 <option value="KR_KP">♚♜ vs ♔♙</option>
+             </select>
           </div>
         </details>
 
@@ -470,32 +454,43 @@
     // --- Persistence ---
     function saveSettings() {
         try {
-            const w = Array.from(document.querySelectorAll('input[name="white-pieces"]')).map(el => el.checked);
-            const b = Array.from(document.querySelectorAll('input[name="black-pieces"]')).map(el => el.checked);
-            localStorage.setItem("endgame-trainer-white", JSON.stringify(w));
-            localStorage.setItem("endgame-trainer-black", JSON.stringify(b));
+            const sel = document.getElementById("endgameSelect");
+            const val = sel.value;
+            localStorage.setItem("endgame-trainer-selection", val);
+            updateSummaryLabel();
         } catch(e) { console.warn("Could not save settings", e); }
+    }
+
+    function updateSummaryLabel() {
+        const sel = document.getElementById("endgameSelect");
+        const summary = document.getElementById("setupSummary");
+        if (sel && summary) {
+            const selectedOption = sel.options[sel.selectedIndex];
+            summary.textContent = "⚙️ " + selectedOption.textContent;
+        }
     }
 
     function loadSettings() {
         try {
-            const w = JSON.parse(localStorage.getItem("endgame-trainer-white"));
-            const b = JSON.parse(localStorage.getItem("endgame-trainer-black"));
-            
-            if (w) {
-                const inputs = document.querySelectorAll('input[name="white-pieces"]');
-                w.forEach((val, i) => { if(inputs[i] && !inputs[i].disabled) inputs[i].checked = val; });
-            }
-            if (b) {
-                const inputs = document.querySelectorAll('input[name="black-pieces"]');
-                b.forEach((val, i) => { if(inputs[i] && !inputs[i].disabled) inputs[i].checked = val; });
+            const val = localStorage.getItem("endgame-trainer-selection");
+            if (val) {
+                const sel = document.getElementById("endgameSelect");
+                if (sel) {
+                    sel.value = val;
+                    updateSummaryLabel();
+                }
             }
         } catch(e) { console.warn("Could not load settings", e); }
     }
     
     // Init Persistence
     loadSettings();
-    document.querySelectorAll('.piece-group input').forEach(el => el.addEventListener('change', saveSettings));
+    updateSummaryLabel();
+    const sel = document.getElementById('endgameSelect');
+    if(sel) sel.addEventListener('change', () => {
+        saveSettings();
+        startNewGame();
+    });
 
     // Start
     console.log("Starting game loop...");
@@ -667,11 +662,11 @@
         if (correct) {
             streak++;
             updateStreak();
-            setStatus("ok", `Correct! It is a ${wdlToString(actualWdl)}. Keep playing.`);
+            setStatus("ok", `Correct! It is a ${wdlToString(actualWdl)}.`);
         } else {
             streak = 0;
             updateStreak();
-            setStatus("bad", `Wrong. It is a ${wdlToString(actualWdl)}. You can still play the position.`);
+            setStatus("bad", `Wrong. It is a ${wdlToString(actualWdl)}.`);
         }
         setGuessEnabled(false);
         el.guessControls.classList.add("hidden");
@@ -895,8 +890,10 @@
     }
 
     function getSelectedPieces() {
-        const w = Array.from(document.querySelectorAll('input[name="white-pieces"]:checked')).map(c=>c.value);
-        const b = Array.from(document.querySelectorAll('input[name="black-pieces"]:checked')).map(c=>c.value);
+        const val = document.getElementById("endgameSelect").value;
+        const [whitePart, blackPart] = val.split('_');
+        const w = whitePart.split(''); // e.g. "KP" -> ['K', 'P']
+        const b = blackPart.split(''); // e.g. "KR" -> ['K', 'R']
         return { w, b };
     }
 
