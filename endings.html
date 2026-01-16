@@ -316,7 +316,10 @@
              </div>
         </div>
 
-        <div id="status" class="status">Initializing...</div>
+        <div style="display:flex; gap:10px; align-items:stretch;">
+            <div id="status" class="status" style="flex-grow:1;">Initializing...</div>
+            <button id="btnUndo" class="hidden" style="width: 50px; padding:0; font-size:1.5rem; border-radius:14px;" title="Undo last move">↺</button>
+        </div>
 
         <div class="btnRow" id="guessControls">
           <button class="btn-win" id="btnWin">Win</button>
@@ -370,6 +373,7 @@
       btnPlayAgain: document.getElementById("btnPlayAgain"),
       analyze: document.getElementById("analyzeLink"),
       guessControls: document.getElementById("guessControls"),
+      btnUndo: document.getElementById("btnUndo"),
     };
 
     // --- State ---
@@ -440,6 +444,39 @@
     
     el.btnNew.addEventListener("click", startNewGame);
     el.btnPlayAgain.addEventListener("click", startNewGame);
+    el.btnUndo.addEventListener("click", undoLastMove);
+
+    async function undoLastMove() {
+        // Allow undo even if gameActive is false (e.g. after blunder endGame)
+        
+        // If it's black's turn (user just played and blundered), undo 1 move.
+        // If it's white's turn (normal flow), undo 2 moves.
+        
+        if (chess.turn() === 'b') {
+             chess.undo();
+        } else {
+             chess.undo();
+             chess.undo();
+        }
+
+        currentFen = chess.fen();
+        await board.setPosition(currentFen, true);
+        
+        // Refresh TB Data
+        try {
+            currentTbData = await fetchTablebase(currentFen);
+            
+            // Re-evaluate state
+            gameActive = true; // Reactivate game
+            isUserTurn = true;
+            setStatus(null, "Your Turn");
+            drawOutcomeArrows(currentTbData);
+            
+            if (chess.history().length === 0) {
+                 el.btnUndo.classList.add("hidden");
+            }
+        } catch(e) { console.error(e); }
+    }
 
     function selectSquare(sq) {
         board.removeMarkers(MARKER_SELECTED);
@@ -495,6 +532,7 @@
         setGuessEnabled(false);
         if(el.btnPlayAgain) el.btnPlayAgain.classList.add("hidden");
         if(el.guessControls) el.guessControls.classList.remove("hidden");
+        if(el.btnUndo) el.btnUndo.classList.add("hidden");
         setStatus("warn", "Generating position...");
         
         try {
@@ -579,6 +617,7 @@
             
             if (failed) {
                 endGame(false, msg);
+                if (el.btnUndo) el.btnUndo.classList.remove("hidden");
                 // Revert board to show? No, keep it.
                 return;
             }
@@ -627,6 +666,9 @@
                 
                 isUserTurn = true;
                 setStatus(null, "Your Turn");
+                if (el.btnUndo && chess.history().length > 0) {
+                    el.btnUndo.classList.remove("hidden");
+                }
                 // updateLinks removed
             } else {
                 handleGameOver();
