@@ -162,7 +162,7 @@
 
     button, a.linkBtn {
       appearance: none;
-      border: 1px solid var(--border);
+      border: none; /* Removed border */
       background: var(--btn);
       color: var(--text);
       padding: 10px 12px;
@@ -187,12 +187,16 @@
       cursor: not-allowed;
     }
 
-    .btn-win { border-color: rgba(46, 204, 113, 0.4); }
-    .btn-draw { border-color: rgba(255, 204, 102, 0.4); }
-    .btn-loss { border-color: rgba(255, 92, 92, 0.4); }
+    .btn-win { background: rgba(46, 204, 113, 0.2) !important; }
+    .btn-draw { background: rgba(255, 204, 102, 0.2) !important; }
+    .btn-loss { background: rgba(255, 92, 92, 0.2) !important; }
+    
+    .btn-win:hover { background: rgba(46, 204, 113, 0.3) !important; }
+    .btn-draw:hover { background: rgba(255, 204, 102, 0.3) !important; }
+    .btn-loss:hover { background: rgba(255, 92, 92, 0.3) !important; }
 
     details {
-      border: 1px solid var(--border);
+      border: none; /* Removed border */
       border-radius: 14px;
       background: rgba(255,255,255,0.02);
       overflow: hidden;
@@ -355,7 +359,7 @@
         </div>
       </div>
 
-      <div class="card sideCard">
+      <div class="sideCard">
         
         <div style="display:flex; justify-content:center; align-items:center; gap: 10px; padding: 4px 0;">
              <select id="endgameSelect" style="flex-grow:1; padding:10px; border-radius:14px; background:var(--btn); color:var(--text); border:1px solid var(--border); font-size:1.4rem; cursor:pointer;">
@@ -366,19 +370,13 @@
                  <option value="KRP_KR">♚♜♟ vs ♔♖</option>
                  <option value="KR_KRP">♚♜ vs ♔♖♙</option>
              </select>
-             <div class="streak-card" style="white-space:nowrap; padding: 10px 14px; border-radius:14px; border:1px solid var(--border); background:rgba(255,255,255,0.02); font-size:14px; display:flex; align-items:center; justify-content:center;">
+             <div class="streak-card" style="white-space:nowrap; padding: 10px 14px; border-radius:14px; border:none; background:rgba(255,255,255,0.02); font-size:14px; display:flex; align-items:center; justify-content:center;">
                 Streak: <strong id="streak" style="margin-left:5px; font-size: 1.1rem;">0</strong>
              </div>
         </div>
 
         <div style="display:flex; gap:10px; align-items:stretch;">
             <div id="status" class="status" style="flex-grow:1;">Initializing...</div>
-            
-            <div id="godModeContainer" class="hidden" style="display:flex; align-items:center; background:rgba(255,255,255,0.05); padding:0 10px; border-radius:14px; border:1px solid var(--border);" title="Analysis Mode">
-                <label style="cursor:pointer; font-size:1.2rem; margin:0; display:flex; align-items:center;">
-                    <input type="checkbox" id="godModeCheck" style="display:none;"> 🔎
-                </label>
-            </div>
             
             <button id="btnUndo" class="hidden" style="width: 50px; padding:0; font-size:1.5rem; border-radius:14px;" title="Undo last move">↺</button>
         </div>
@@ -391,9 +389,21 @@
 
         <button id="btnPlayAgain" class="hidden" style="background:var(--highlight-win); border:none; color:white;">Play Again &rarr;</button>
 
-        <div class="btnRow2">
+        <div class="btnRow2" style="align-items:center;">
           <button id="btnNew">New Position</button>
-          <a id="analyzeLink" class="linkBtn" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">Analyze</a>
+          
+          <div style="display:flex; gap:10px; align-items:center; width:100%;">
+              <a id="analyzeLink" class="linkBtn" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true" title="Analyze on Lichess" style="flex-grow:1; display:flex; justify-content:center; align-items:center;">
+                <!-- Local Lichess Logo -->
+                <img src="Lichess-White-Logo-Online-Chess-49.png" alt="Lichess" height="28" style="object-fit: contain;">
+              </a>
+              
+              <div id="godModeContainer" style="display:flex; align-items:center; background:rgba(255,255,255,0.05); padding:0 10px; border-radius:14px; min-height:44px;" title="Analysis Mode">
+                <label style="cursor:pointer; font-size:1.2rem; margin:0; display:flex; align-items:center;">
+                    <input type="checkbox" id="godModeCheck" style="display:none;"> 🔎
+                </label>
+              </div>
+          </div>
         </div>
       </div>
     </section>
@@ -488,6 +498,7 @@
     let cachedFilename = null;
     let godMode = false;
     let analysisMode = false;
+    let streakInvalidated = false;
 
     // --- Init Board ---
     board = new Chessboard(document.getElementById("board"), {
@@ -551,8 +562,12 @@
     if (el.godModeCheck) {
         el.godModeCheck.addEventListener("change", (e) => {
             godMode = e.target.checked;
-            if (godMode) el.godModeContainer.classList.add("active");
-            else el.godModeContainer.classList.remove("active");
+            if (godMode) {
+                el.godModeContainer.classList.add("active");
+                streakInvalidated = true;
+            } else {
+                el.godModeContainer.classList.remove("active");
+            }
             
             // Clear selection/markers on toggle to prevent stale state
             selectSquare(null);
@@ -596,7 +611,13 @@
             // Re-evaluate state
             gameActive = true; // Reactivate game
             isUserTurn = true;
-            setStatus(null, "Your Turn");
+            
+            if (!el.btnWin.classList.contains("hidden")) {
+                setStatus(null, "Guess result or Play a move.");
+            } else {
+                setStatus(null, "");
+            }
+            
             clearArrows();
             
             if (chess.history().length === 0) {
@@ -626,12 +647,15 @@
                 
                 // Aggregate by destination to handle promotions (pick best outcome)
                 const destMap = new Map();
+                let hasWinningMove = false;
                 
                 moves.forEach(m => {
                     const dest = m.uci.slice(2, 4);
                     const wdl = categoryToWdl(m.category); // 2, 0, -2
                     
                     // Logic: -2 (Green/Win) > 0 (Orange/Draw) > 2 (Red/Loss)
+                    if (wdl === -2) hasWinningMove = true;
+
                     if (!destMap.has(dest)) {
                         destMap.set(dest, wdl);
                     } else {
@@ -712,11 +736,12 @@
         if(el.guessControls) el.guessControls.classList.remove("hidden");
         if(el.btnUndo) el.btnUndo.classList.add("hidden");
         if(el.godModeContainer) {
-            el.godModeContainer.classList.add("hidden");
+            // el.godModeContainer.classList.add("hidden"); // Kept visible as per request
             el.godModeContainer.classList.remove("active");
         }
         if(el.godModeCheck) { el.godModeCheck.checked = false; godMode = false; }
         analysisMode = false;
+        streakInvalidated = false;
         setStatus("warn", "Generating position...");
         
         try {
@@ -745,7 +770,7 @@
             // normalize wdl from category if needed handled in fetchTablebase
             
             updateLinks(initialFen);
-            setStatus(null, "Your Turn: Guess result or Play a move.");
+            setStatus(null, "Guess result or Play a move.");
             setGuessEnabled(true);
             gameActive = true;
             isUserTurn = true;
@@ -818,7 +843,10 @@
             if (prevWdl === 2) { // We were winning
                  if (newData.wdl !== -2) { // Opponent not losing
                      failed = true;
-                     msg = "Blunder! You turned a Win into a Draw/Loss.";
+                     // newData.wdl: 2 (Opponent Wins) -> We Lost
+                     // newData.wdl: 0 (Draw) -> We Drew
+                     const outcome = newData.wdl === 2 ? "Loss" : "Draw";
+                     msg = `Blunder! You turned a Win into a ${outcome}.`;
                  }
             } else if (prevWdl === 0) { // Drawing
                  if (newData.wdl === 2) { // Opponent Winning
@@ -877,7 +905,12 @@
                 currentTbData = await fetchTablebase(currentFen);
                 
                 isUserTurn = true;
-                setStatus(null, "Your Turn");
+                if (!el.btnWin.classList.contains("hidden")) {
+                    setStatus(null, "Guess result or Play a move.");
+                } else {
+                    setStatus(null, "");
+                }
+                
                 if (el.btnUndo && chess.history().length > 0) {
                     el.btnUndo.classList.remove("hidden");
                 }
@@ -900,8 +933,10 @@
         let correct = (guessWdl === actualWdl);
         
         if (correct) {
-            streak++;
-            updateStreak();
+            if (!streakInvalidated) {
+                streak++;
+                updateStreak();
+            }
             setStatus("ok", `Correct! It is a ${wdlToString(actualWdl)}.`);
         } else {
             streak = 0;
@@ -909,42 +944,73 @@
             setStatus("bad", `Wrong. It is a ${wdlToString(actualWdl)}.`);
         }
         setGuessEnabled(false);
-        // Hide only guess buttons, show Analysis Mode toggle
+        // Hide only guess buttons
         el.btnWin.classList.add("hidden");
         el.btnDraw.classList.add("hidden");
         el.btnLoss.classList.add("hidden");
-        if (el.godModeContainer) el.godModeContainer.classList.remove("hidden");
+        // Analysis Mode toggle is always visible now
     }
 
-    function handleGameOver() {
+    async function handleGameOver() {
         let success = false;
         let msg = "";
-
+        
+        // Determine Actual Result from User's Perspective (White)
+        // 1 = Win, 0 = Draw, -1 = Loss
+        let actualResult = 0; 
+        
         if (chess.isCheckmate()) {
-            if (chess.turn() === 'b') { // White moved last => White mated Black
-                success = true;
-                msg = "Checkmate! You Won!";
-            } else {
-                // Black mated White
-                // Only success if objective was Loss (unlikely)
-                success = (currentTbData.wdl === -2);
-                msg = success ? "Checkmate (Expected Loss)" : "Checkmate! You Lost.";
-            }
-        } else if (chess.isStalemate()) {
-            // Stalemate is a Draw.
-            // Success if objective was Draw (0) or Loss (-2 - saving a loss is good?). 
-            // Usually if WDL=0, Stalemate is success.
-            success = (currentTbData.wdl <= 0);
-            msg = "Stalemate!";
+            if (chess.turn() === 'b') actualResult = 1; // White mated Black
+            else actualResult = -1; // Black mated White
         } else {
-            // Insufficient material, 50-move, etc. => Draw
-            success = (currentTbData.wdl <= 0);
-            msg = "Game Over (Draw).";
+            actualResult = 0; // Stalemate, Insufficient Material, etc.
+        }
+
+        // Determine Theoretical Outcome of the STARTING position
+        // We need to fetch or store the initial WDL. 
+        // currentTbData tracks current position. 
+        // Let's fetch initial position WDL again or store it in startNewGame.
+        // For now, let's just fetch it to be safe (or assume initialFen is valid).
+        
+        let initialWdl = 0;
+        try {
+            const initData = await fetchTablebase(initialFen);
+            // initData.wdl: 2 (Win), 0 (Draw), -2 (Loss)
+            if (initData.wdl === 2) initialWdl = 1;
+            else if (initData.wdl === -2) initialWdl = -1;
+            else initialWdl = 0;
+        } catch(e) { console.error("Could not fetch initial WDL", e); }
+
+        // Logic
+        if (actualResult === 1) {
+            // User Won
+            success = true;
+            msg = "Checkmate! You Won!";
+        } else if (actualResult === -1) {
+            // User Lost
+            success = false; // Usually failure unless expected loss?
+            if (initialWdl === 1) msg = "You lost a winning position.";
+            else if (initialWdl === 0) msg = "You lost a drawn position.";
+            else {
+                success = true; // Expected loss achieved?
+                msg = "You lost (as expected).";
+            }
+        } else {
+            // Draw
+            if (initialWdl === 1) {
+                success = false;
+                msg = "You drew a winning position.";
+            } else {
+                success = true;
+                msg = "Game Over (Draw).";
+            }
         }
 
         if (success) {
-            streak++;
-            updateStreak();
+            if (!streakInvalidated) {
+                streak++;
+                updateStreak();
+            }
             setStatus("ok", msg); // Green
         } else {
             // Reset streak on failure
@@ -970,7 +1036,7 @@
             streak = 0;
             updateStreak();
         }
-        if (el.godModeContainer) el.godModeContainer.classList.remove("hidden");
+        // Analysis Mode toggle is always visible now
     }
 
     // --- Generation & Validation Logic ---
@@ -1116,15 +1182,27 @@
         const moves = Array.isArray(tbData?.moves) ? tbData.moves : [];
         if (!moves.length) return;
 
-        for (const m of moves) {
+        // Map category to WDL and determine if any move is winning for current player
+        // Reminder: Category 'loss' (-2) is WIN for us. Category 'win' (2) is LOSS for us.
+        const movesWithWdl = moves.map(m => ({ ...m, wdl: categoryToWdl(m.category) }));
+        const hasWinningMove = movesWithWdl.some(m => m.wdl === -2);
+
+        for (const m of movesWithWdl) {
             const arrow = uciToArrow(m.uci);
             if (!arrow) continue;
             
-            const baseWdl = categoryToWdl(m.category); // Raw WDL from category
-            if (baseWdl === null) continue;
+            if (m.wdl === null) continue;
 
-            // Invert the WDL to match user's observed colors (winning moves appearing red, losing moves appearing green).
-            const moveWdl = -baseWdl; 
+            // Filter Logic:
+            // 1. Hide Losing moves (wdl === 2)
+            if (m.wdl === 2) continue;
+            
+            // 2. If winning moves exist, hide drawing moves
+            if (hasWinningMove && m.wdl === 0) continue;
+
+            // Convert TB WDL to our color WDL
+            // win (+2) for us = -(-2)
+            const moveWdl = -m.wdl; 
 
             let arrowType = null;
             if (moveWdl === 2) arrowType = ARROW_WIN;
