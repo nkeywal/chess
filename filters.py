@@ -368,6 +368,13 @@ def filter_notb_kp_vs_k(board: chess.Board) -> bool:
     if bkr < pr and wk != pawn_front:
         return False
 
+    # Reject if the black king is outside the pawn's square and the white king is not on the pawn's path.
+    moves_to_promote = 7 - pr
+    promo_sq = chess.square(pf, 7)
+    if max(abs(bkf - pf), abs(bkr - 7)) > moves_to_promote:
+        if not (wkf == pf and wkr >= pr):
+            return False
+
     return True
 
 
