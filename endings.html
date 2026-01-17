@@ -233,7 +233,34 @@
         pointer-events: none;
     }
 
-    /* --- Pretty Arrows --- */
+    .marker-source {
+        fill: rgba(20, 85, 30, 0.5); /* Greenish background */
+        stroke: none;
+        pointer-events: none;
+    }
+
+    .marker-dest {
+        fill: rgba(20, 85, 30, 0.5);
+        stroke: none;
+        pointer-events: none;
+    }
+
+    /* Ensure markers are on top of pieces */
+    #board svg .marker-dot {
+        z-index: 10;
+        pointer-events: none;
+    }
+    
+    #board svg .marker-square {
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    /* If cm-chessboard uses a specific layer structure, we might need to force the dot layer */
+    #board .markers-layer.marker-dot {
+        display: block;
+    }
+
     /* Link lines to custom markers defined in HTML */
     .arrow-win line { 
         stroke: #4ade80 !important; 
@@ -349,7 +376,36 @@
     import { Markers, MARKER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/extensions/markers/Markers.js";
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.7/+esm";
 
+    // Custom Extension to render specific markers on top of pieces
+    class ForegroundMarkers extends Markers {
+        constructor(chessboard, props) {
+            super(chessboard, props);
+            // Move this extension's group to the end of the SVG (after pieces)
+            // this.markerGroup is defined in the parent Markers class
+            if (this.markerGroup && chessboard.view.svg) {
+                chessboard.view.svg.appendChild(this.markerGroup);
+            }
+        }
+
+        addMarker(type, square) {
+            // Only handle destination dots
+            if (type && type.class === "marker-dest") {
+                super.addMarker(type, square);
+            }
+        }
+
+        removeMarkers(type, square) {
+            // Only handle destination dots
+            if (!type || (type.class === "marker-dest")) {
+                super.removeMarkers(type, square);
+            }
+        }
+    }
+
     const MARKER_SELECTED = { class: "marker-selected", slice: "markerSquare" };
+    const MARKER_SOURCE = { class: "marker-source", slice: "markerSquare" };
+    const MARKER_DEST = { class: "marker-dest", slice: "markerDot" };
+    
     const ARROW_WIN = { ...ARROW_TYPE.default, class: "arrow-win" };
     const ARROW_DRAW = { ...ARROW_TYPE.default, class: "arrow-draw" };
     const ARROW_LOSS = { ...ARROW_TYPE.default, class: "arrow-loss" };
@@ -399,7 +455,7 @@
         pieces: { file: "pieces/standard.svg" },
         borderType: BORDER_TYPE.frame
       },
-      extensions: [{ class: Arrows }, { class: Markers }]
+      extensions: [{ class: Arrows }, { class: Markers }, { class: ForegroundMarkers }]
     });
 
     board.enableMoveInput((event) => {
@@ -470,7 +526,7 @@
             gameActive = true; // Reactivate game
             isUserTurn = true;
             setStatus(null, "Your Turn");
-            drawOutcomeArrows(currentTbData);
+            clearArrows();
             
             if (chess.history().length === 0) {
                  el.btnUndo.classList.add("hidden");
@@ -479,10 +535,20 @@
     }
 
     function selectSquare(sq) {
-        board.removeMarkers(MARKER_SELECTED);
+        board.removeMarkers(MARKER_SOURCE);
+        board.removeMarkers(MARKER_DEST);
+        board.removeMarkers(MARKER_SELECTED); // Cleanup old
+        
         selectedSquare = sq;
         if (selectedSquare) {
-            board.addMarker(MARKER_SELECTED, selectedSquare);
+            // Add Source Marker
+            board.addMarker(MARKER_SOURCE, selectedSquare);
+            
+            // Calculate and Add Dest Markers
+            const moves = chess.moves({ square: selectedSquare, verbose: true });
+            moves.forEach(m => {
+                board.addMarker(MARKER_DEST, m.to);
+            });
         }
     }
 
