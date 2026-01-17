@@ -98,9 +98,18 @@
     }
 
     .boardCard {
-      padding: var(--cardPad);
+      padding: 0; /* Removed padding for full-bleed board */
       display: grid;
       place-items: center;
+      border: none; /* Optional: remove card border if desired, but padding=0 usually fixes the 'frame' look */
+      background: transparent; /* Remove card background so only board shows */
+      box-shadow: none;
+    }
+
+    /* Force hide cm-chessboard border if JS setting fails */
+    .cm-chessboard .border { 
+        display: none !important; 
+        stroke: none !important;
     }
 
     .boardSizer {
@@ -487,7 +496,7 @@
       orientation: COLOR.white,
       style: {
         pieces: { file: "pieces/standard.svg" },
-        borderType: BORDER_TYPE.frame
+        borderType: BORDER_TYPE.none
       },
       extensions: [{ class: Arrows }, { class: Markers }, { class: ForegroundMarkers }]
     });
