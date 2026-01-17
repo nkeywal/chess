@@ -110,12 +110,19 @@ def filter_tb_kr_vs_krp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
 
     # B. White loses -> false fortress.
     if wdl < 0:
-        if dtm is not None and abs(dtm) < 11:
+        if abs(dtm) < 11:
             return False
-        wp = next(iter(board.pieces(chess.PAWN, chess.BLACK)))
+        p = next(iter(board.pieces(chess.PAWN, chess.BLACK)))
+        pf, pr = chess.square_file(p), chess.square_rank(p)
         wk = board.king(chess.WHITE)
-        if chess.square_rank(wk) > chess.square_rank(wp):
+        wkf, wkr = chess.square_file(wk), chess.square_rank(wk)
+        
+        if wkr > pr:
             return False
+
+        if max(abs(wkf - pf), abs(wkr - pr)) > 2:
+            return False            	   
+	
         return True
 
     # C. Draw -> precision save.
