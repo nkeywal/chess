@@ -66,12 +66,6 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--w", required=True, help="White material, e.g. KPP, KR, KQ")
     p.add_argument("--b", required=True, help="Black material, e.g. K, KP, KR")
-    p.add_argument(
-        "--min-dtm",
-        type=int,
-        default=4,
-        help="Early reject decisive positions with abs(DTM) < this value, before computing per-move outcomes (default: 4).",
-    )
     return p.parse_args()
 
 
@@ -377,10 +371,6 @@ def fmt_elapsed(seconds: float) -> str:
 def main() -> None:
     args = parse_args()
 
-    min_dtm = int(args.min_dtm)
-    if min_dtm < 0:
-        raise ValueError("--min-dtm must be >= 0.")
-
     wcanon = canonicalize_material(args.w)
     bcanon = canonicalize_material(args.b)
     material = Material(white=wcanon, black=bcanon)
@@ -413,7 +403,6 @@ def main() -> None:
     rejected_notb_specific = 0
     passed_notb = 0
 
-    rejected_tb_dtm_fast = 0
     rejected_tb_generic = 0
     rejected_tb_specific = 0
     accepted = 0
@@ -454,7 +443,6 @@ def main() -> None:
             f" rate_accepted={rate_accepted:,.0f}/s"
             f" | notb_rej_generic={rejected_notb_generic}"
             f" notb_rej_specific={rejected_notb_specific}"
-            f" | tb_rej_dtm_fast={rejected_tb_dtm_fast}"
             f" tb_rej_generic={rejected_tb_generic}"
             f" tb_rej_specific={rejected_tb_specific}"
             f" | tb_opened={tb_opened}"
@@ -495,12 +483,6 @@ def main() -> None:
 
             # Probe only DTM for the root position first.
             wdl_white, dtm_white = probe_dtm_only_white_pov(tablebase, board)
-
-            # Early reject: only for decisive positions (draws are always accepted here).
-            if min_dtm > 0 and wdl_white != 0 and dtm_white is not None:
-                if abs(dtm_white) < min_dtm:
-                    rejected_tb_dtm_fast += 1
-                    continue
 
             # Build TB info with on-demand per-move probe (expensive only if needed).
             tb_info = build_tb_info_with_probe(tablebase, board, wdl_white, dtm_white)
@@ -561,7 +543,6 @@ def main() -> None:
     print(f"  accepted: {accepted}")
     print(f"  rejected_notb_generic: {rejected_notb_generic}")
     print(f"  rejected_notb_specific: {rejected_notb_specific}")
-    print(f"  rejected_tb_dtm_fast: {rejected_tb_dtm_fast}")
     print(f"  rejected_tb_generic: {rejected_tb_generic}")
     print(f"  rejected_tb_specific: {rejected_tb_specific}")
 

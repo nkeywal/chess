@@ -40,6 +40,8 @@ def filter_tb_generic(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     return True
 
 
+
+
 # Optional material-specific functions can be added as needed, e.g.:
 # def filter_notb_kp_vs_kr(board: chess.Board) -> bool:
 #     return True
@@ -111,22 +113,26 @@ def filter_tb_krp_vs_kr(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     KRP vs KR TB filter.
     Selects 'Precision Wins' or 'False Wins'.
     """
+    dtm = tb["dtm"]
+    if dtm is not None and abs(dtm) < 11:
+        return False
+
     wdl = tb["wdl"]
     
-    # Rejette les défaites (Loss) - trop rares ou dues à des gaffes
+    # Reject losses: too rare or caused by blunders.
     if wdl < 0: return False
 
-    # --- CAS 1 : VICTOIRE (Chercher la précision / Lucena) ---
+    # --- Case 1: Win (seek precision / Lucena) ---
     if wdl > 0:
         winning = 0
         for move in board.legal_moves:
             if tb["probe_move"](move)["wdl"] == 1:
                 winning += 1
                 if winning > 1: 
-                    return False # Trop facile si plusieurs chemins gagnent
-        return winning == 1 # Un seul coup gagne (Le Pont, etc.)
+                    return False # Too easy if multiple winning lines exist.
+        return winning == 1 # Exactly one winning move (bridge-building, etc.).
 
-    # --- CAS 2 : NULLE (Chercher l'illusion de gain) ---
+    # --- Case 2: Draw (seek the illusion of a win) ---
     if wdl == 0:
         wp = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
         wk = board.king(chess.WHITE)
@@ -137,13 +143,13 @@ def filter_tb_krp_vs_kr(board: chess.Board, tb: Mapping[str, Any]) -> bool:
         wkr = chess.square_rank(wk)
         bkf = chess.square_file(bk)
 
-        # 1. Illusion d'Activité : Le Roi Blanc est DEVANT ou A CÔTÉ du pion.
-        # S'il est derrière (wkr < pr), c'est passif et l'estimation "Nulle" est facile.
+        # 1. Activity illusion: the white king is in front of or next to the pawn.
+        # If it is behind (wkr < pr), it is passive and the draw is obvious.
         if wkr < pr: return False
 
-        # 2. Illusion de Passage : Le Roi Noir n'est PAS devant le pion.
-        # S'il est sur la même colonne (bkf == pf), il bloque visiblement.
-        # On veut qu'il soit sur le côté (coupé ou flanc), pour que le joueur pense "C'est libre !".
+        # 2. Passage illusion: the black king is NOT in front of the pawn.
+        # If it is on the same file (bkf == pf), it visibly blocks.
+        # We want it on the side (cut off or flank) so the player thinks "It's free!".
         if bkf == pf: return False
         
         return True
@@ -208,6 +214,10 @@ def filter_tb_k_vs_kp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
       (ranks decrease towards 0 for White here, so king is "lower" or same as the pawn towards promotion).
     - If White win (tb["wdl"] == +1): keep the position.
     """
+    dtm = tb["dtm"]
+    if dtm is not None and abs(dtm) < 11:
+        return False
+
     wdl = tb["wdl"]
 
     if wdl == 0:
@@ -268,6 +278,10 @@ def filter_tb_kp_vs_k(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     - If White wins (tb["wdl"] == +1): exactly one first move must also be a win.
     - If draw (tb["wdl"] == 0): require White king to be close to the pawn (Chebyshev distance <= 2).
     """
+    dtm = tb["dtm"]
+    if dtm is not None and abs(dtm) < 11:
+        return False
+
     if tb["wdl"] == 1:
         winning = 0
         for move in board.legal_moves:
@@ -318,7 +332,7 @@ def filter_notb_kr_vs_kp(board: chess.Board) -> bool:
     pr = chess.square_rank(p)
     pf = chess.square_file(p)
 
-    # Pawn on human rank 2/3/4 <=> 0-based rank in {1,2,3}
+    # We want pawns on human rank 2/3/4 <=> 0-based rank in {1,2,3}
     if pr > 3:
         return False
 
@@ -371,6 +385,10 @@ def filter_tb_kr_vs_kp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
             (4) If drawing moves are rook moves: at most 4 drawing moves AND
                 all rook drawing moves go in the same direction (N/S/E/W).
     """
+    dtm = tb["dtm"]
+    if dtm is not None and abs(dtm) < 11:
+        return False
+
     wdl = tb["wdl"]
     if wdl < 0:
         return False
@@ -485,6 +503,10 @@ def filter_tb_kp_vs_kr(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     KP vs KR TB-specific filter:
 
     """
+    dtm = tb["dtm"]
+    if dtm is not None and abs(dtm) < 11:
+        return False
+
     if tb["wdl"] != 0:
         return True
 
@@ -499,7 +521,3 @@ def filter_tb_kp_vs_kr(board: chess.Board, tb: Mapping[str, Any]) -> bool:
             return False
 
     return drawing_moves == 1 or (drawing_moves == 2 and non_drawing_moves > 4)
-
-
-
-
