@@ -50,6 +50,101 @@ def filter_tb_generic(board: chess.Board, tb: Mapping[str, Any]) -> bool:
 #     return True
 
 
+def filter_notb_kr_vs_krp(board: chess.Board) -> bool:
+    """
+    KR (White) vs KRP (Black) no-TB filter.
+    """
+    wk = board.king(chess.WHITE)
+    bk = board.king(chess.BLACK)
+
+    # Safe extraction.
+    try:
+        wp = next(iter(board.pieces(chess.PAWN, chess.BLACK)))
+        wr = next(iter(board.pieces(chess.ROOK, chess.WHITE)))
+        br = next(iter(board.pieces(chess.ROOK, chess.BLACK)))
+    except StopIteration:
+        return False
+
+    pf, pr = chess.square_file(wp), chess.square_rank(wp)
+
+    # 1. Black pawn: files b-g, ranks 2/3/4 (0-based, towards rank 0).
+    if pf < 1 or pf > 6:
+        return False
+    if pr not in (2, 3, 4):
+        return False
+
+    # 2. Combat zone: both kings within distance <= 3 of the pawn.
+    wkf, wkr = chess.square_file(wk), chess.square_rank(wk)
+    bkf, bkr = chess.square_file(bk), chess.square_rank(bk)
+    if max(abs(wkf - pf), abs(wkr - pr)) > 3:
+        return False
+    if max(abs(bkf - pf), abs(bkr - pr)) > 3:
+        return False
+
+    # 3. Safety: white king not in check; no immediate capture for White.
+    if board.is_check():
+        return False
+    for mv in board.legal_moves:
+        if board.is_capture(mv):
+            return False
+
+    # 4. Black rook activity: no check on white king, no attack on white rook.
+    br_attacks = board.attacks(br)
+    for sq in (wk, wr):
+        if (br_attacks >> sq) & 1:
+            return False
+
+    return True
+
+
+def filter_tb_kr_vs_krp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
+    """
+    KR (White) vs KRP (Black) TB filter.
+    """
+    wdl = tb["wdl"]
+    dtm = tb["dtm"]
+
+    # A. White wins -> exclude.
+    if wdl > 0:
+        return False
+
+    # B. White loses -> false fortress.
+    if wdl < 0:
+        if dtm is not None and abs(dtm) < 11:
+            return False
+        wp = next(iter(board.pieces(chess.PAWN, chess.BLACK)))
+        wk = board.king(chess.WHITE)
+        if chess.square_rank(wk) > chess.square_rank(wp):
+            return False
+        return True
+
+    # C. Draw -> precision save.
+    drawing_moves = 0
+    drawing_rook_moves = 0
+    losing_exists = False
+
+    for move in board.legal_moves:
+        outcome = tb["probe_move"](move)["wdl"]
+        if outcome < 0:
+            losing_exists = True
+            continue
+        if outcome == 0:
+            drawing_moves += 1
+            piece = board.piece_at(move.from_square)
+            if piece is not None and piece.piece_type == chess.ROOK:
+                drawing_rook_moves += 1
+            if drawing_moves >= 3:
+                return False
+
+    if not losing_exists:
+        return False
+    if drawing_moves == 1:
+        return True
+    if drawing_moves == 2 and drawing_rook_moves == 2:
+        return True
+    return False
+
+
 
 def filter_notb_krp_vs_kr(board: chess.Board) -> bool:
     """
