@@ -282,38 +282,42 @@ def probe_dtm_only_white_pov(tablebase: Any, board: chess.Board) -> Tuple[int, O
     return wdl_white, dtm_white
 
 
-def build_tb_info_with_moves(
+def build_tb_info_with_probe(
     tablebase: Any,
     board: chess.Board,
     wdl_white: int,
     dtm_white: Optional[int],
 ) -> Dict[str, Any]:
     """
-    Build TB info dict for filters, including per-move outcomes:
+    Build TB info dict for filters, with an on-demand per-move probe:
       - wdl: int {-1,0,+1}, White POV
       - dtm: Optional[int], White POV (None if draw)
-      - moves: list of {uci, wdl, dtm}, White POV
+      - probe_move: callable(move) -> {uci, wdl, dtm}, White POV for the child
     """
-    legal_moves = list(board.legal_moves)
+    cache: Dict[str, Dict[str, Any]] = {}
 
-    moves_out: List[Dict[str, Any]] = []
-    for move in legal_moves:
+    def probe_move(move: chess.Move) -> Dict[str, Any]:
+        key = move.uci()
+        cached = cache.get(key)
+        if cached is not None:
+            return cached
+
         board.push(move)
         w2, d2 = probe_dtm_only_white_pov(tablebase, board)
         board.pop()
 
-        moves_out.append(
-            {
-                "uci": move.uci(),
-                "wdl": w2,
-                "dtm": d2,
-            }
-        )
+        out = {
+            "uci": key,
+            "wdl": w2,
+            "dtm": d2,
+        }
+        cache[key] = out
+        return out
 
     return {
         "wdl": wdl_white,
         "dtm": dtm_white,
-        "moves": moves_out,
+        "probe_move": probe_move,
     }
 
 
@@ -498,8 +502,8 @@ def main() -> None:
                     rejected_tb_dtm_fast += 1
                     continue
 
-            # Build full TB info including per-move outcomes (expensive).
-            tb_info = build_tb_info_with_moves(tablebase, board, wdl_white, dtm_white)
+            # Build TB info with on-demand per-move probe (expensive only if needed).
+            tb_info = build_tb_info_with_probe(tablebase, board, wdl_white, dtm_white)
 
             if not filters.filter_tb_generic(board, tb_info):
                 rejected_tb_generic += 1

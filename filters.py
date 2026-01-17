@@ -15,8 +15,12 @@ def filter_notb_generic(board: chess.Board) -> bool:
     or False to reject early.
     """
     
-    if board.legal_moves.count() < 2:
-    	return False
+    moves_iter = iter(board.legal_moves)
+    try:
+        next(moves_iter)
+        next(moves_iter)
+    except StopIteration:
+        return False
     
     return True 
 
@@ -28,7 +32,7 @@ def filter_tb_generic(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     `tb` contains:
       - "wdl": int in {-1, 0, +1} from White's perspective
       - "dtm": Optional[int] in plies, from White's perspective (None if draw)
-      - "moves": list of dicts with:
+      - "probe_move": function(move) -> dict with:
           - "uci": str
           - "wdl": int in {-1, 0, +1} from White's perspective
           - "dtm": Optional[int] from White's perspective (None if draw)
@@ -53,7 +57,7 @@ def filter_notb_krp_vs_kr(board: chess.Board) -> bool:
     wk = board.king(chess.WHITE)
     bk = board.king(chess.BLACK)
     
-    # Récupération sécurisée
+    # Safe extraction
     try:
         wp = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
         wr = next(iter(board.pieces(chess.ROOK, chess.WHITE)))
@@ -63,36 +67,36 @@ def filter_notb_krp_vs_kr(board: chess.Board) -> bool:
 
     pf, pr = chess.square_file(wp), chess.square_rank(wp)
 
-    # 1. PION : Colonnes b-g, Rangs index 4, 5 (Human 5, 6)
-    # C'est la zone de décision (Lucena vs Philidor)
+    # 1. Pawn: files b-g, ranks index 4/5 (human 5/6).
+    # This is the decision zone (Lucena vs Philidor).
     if pf < 1 or pf > 6: return False
     if pr not in (4, 5): return False 
 
-    # 2. SÉCURITÉ : Pas d'échec au Roi Blanc (Essentiel pour l'estimation)
+    # 2. Safety: no check to the white king (essential for evaluation).
     if board.is_check(): return False
 
-    # 3. ROI BLANC : Doit soutenir le pion (Distance <= 2)
-    # S'il est plus loin, il ne sert à rien.
+    # 3. White king: must support the pawn (distance <= 2).
+    # If it is farther, it is not useful.
     wkf, wkr = chess.square_file(wk), chess.square_rank(wk)
     if max(abs(wkf - pf), abs(wkr - pr)) > 2: return False
 
-    # (NOTE: On a supprimé la contrainte de distance sur le Roi Noir 
-    # pour autoriser les rois "coupés" au loin).
+    # (NOTE: The black king distance constraint was removed
+    # to allow "cut off" kings far away).
 
-    # 4. ACTIVITÉ : Pas de capture immédiate (nettoyage tactique)
+    # 4. Activity: no immediate capture (tactical cleanup).
     for mv in board.legal_moves:
         if board.is_capture(mv): return False
 
-    # 5. TOUR NOIRE : CORRECTION MAJEURE ICI
-    # Elle ne doit pas attaquer le ROI (Echec) ni la TOUR (Echange).
-    # MAIS elle DOIT pouvoir attaquer le PION (c'est la base de la défense).
+    # 5. Black rook: major correction here.
+    # It must not attack the king (check) or the rook (exchange),
+    # BUT it must be able to attack the pawn (foundation of defense).
     br_attacks = board.attacks(br)
-    for sq in (wk, wr): # <-- wp a été retiré de cette liste !
+    for sq in (wk, wr): # <-- wp was removed from this list!
         if (br_attacks >> sq) & 1:
             return False
 
-    # 6. PROTECTION DU PION
-    # Si le pion est attaqué (par Roi ou Tour), il doit être défendu.
+    # 6. Pawn protection.
+    # If the pawn is attacked (by king or rook), it must be defended.
     attackers = board.attackers(chess.BLACK, wp)
     if attackers:
         defenders = board.attackers(chess.WHITE, wp)
@@ -115,8 +119,8 @@ def filter_tb_krp_vs_kr(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     # --- CAS 1 : VICTOIRE (Chercher la précision / Lucena) ---
     if wdl > 0:
         winning = 0
-        for m in tb["moves"]:
-            if m["wdl"] == 1:
+        for move in board.legal_moves:
+            if tb["probe_move"](move)["wdl"] == 1:
                 winning += 1
                 if winning > 1: 
                     return False # Trop facile si plusieurs chemins gagnent
@@ -208,8 +212,8 @@ def filter_tb_k_vs_kp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
 
     if wdl == 0:
         drawing = 0
-        for m in tb["moves"]:
-            if m["wdl"] == 0:
+        for move in board.legal_moves:
+            if tb["probe_move"](move)["wdl"] == 0:
                 drawing += 1
                 if drawing > 1:
                     return False
@@ -266,8 +270,8 @@ def filter_tb_kp_vs_k(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     """
     if tb["wdl"] == 1:
         winning = 0
-        for m in tb["moves"]:
-            if m["wdl"] == 1:
+        for move in board.legal_moves:
+            if tb["probe_move"](move)["wdl"] == 1:
                 winning += 1
                 if winning > 1:
                     return False
@@ -371,12 +375,10 @@ def filter_tb_kr_vs_kp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     if wdl < 0:
         return False
 
-    moves = tb["moves"]
-
     if wdl > 0:
         winning = 0
-        for m in moves:
-            if m["wdl"] == 1:
+        for move in board.legal_moves:
+            if tb["probe_move"](move)["wdl"] == 1:
                 winning += 1
                 if winning > 1:
                     return False
@@ -488,16 +490,15 @@ def filter_tb_kp_vs_kr(board: chess.Board, tb: Mapping[str, Any]) -> bool:
 
     drawing_moves = 0
     non_drawing_moves = 0
-    for m in tb["moves"]:
-        if m["wdl"] == 0:
+    for move in board.legal_moves:
+        if tb["probe_move"](move)["wdl"] == 0:
             drawing_moves += 1
         else:
             non_drawing_moves += 1
+        if drawing_moves > 2:
+            return False
 
     return drawing_moves == 1 or (drawing_moves == 2 and non_drawing_moves > 4)
-
-
-
 
 
 
