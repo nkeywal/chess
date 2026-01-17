@@ -126,29 +126,28 @@ def filter_tb_kr_vs_krp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
         return True
 
     # C. Draw -> precision save.
-    drawing_moves = 0
     drawing_rook_moves = 0
+    drawing_king_moves = 0
     losing_exists = False
 
     for move in board.legal_moves:
         outcome = tb["probe_move"](move)["wdl"]
         if outcome < 0:
             losing_exists = True
-            continue
-        if outcome == 0:
-            drawing_moves += 1
+        else: # drawing move
             piece = board.piece_at(move.from_square)
-            if piece is not None and piece.piece_type == chess.ROOK:
+            if piece.piece_type == chess.ROOK:
                 drawing_rook_moves += 1
-            if drawing_moves >= 3:
-                return False
-
+                if drawing_rook_moves >= 3 or drawing_king_moves >= 1:
+                    return False
+            else:
+                drawing_king_moves += 1
+                if drawing_king_moves >= 2 or drawing_rook_moves >= 1:
+                    return False
+                    
     if not losing_exists:
         return False
-    if drawing_moves == 1:
-        return True
-    if drawing_moves == 2 and drawing_rook_moves == 2:
-        return True
+
     return False
 
 
