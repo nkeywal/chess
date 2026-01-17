@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Endgame Trainer</title>
+  <title>Trivial Endgames</title>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/assets/chessboard.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/assets/extensions/arrows/arrows.css">
@@ -245,6 +245,11 @@
         pointer-events: none;
     }
 
+    /* Analysis Mode Markers (Flashy) */
+    .marker-god-win { fill: #00ff00; opacity: 0.5; pointer-events: none; }
+    .marker-god-draw { fill: #ffae00; opacity: 0.5; pointer-events: none; }
+    .marker-god-loss { fill: #ff0000; opacity: 0.5; pointer-events: none; }
+
     /* Ensure markers are on top of pieces */
     #board svg .marker-dot {
         z-index: 10;
@@ -260,6 +265,8 @@
     #board .markers-layer.marker-dot {
         display: block;
     }
+    
+    /* --- Layout --- */
 
     /* Link lines to custom markers defined in HTML */
     .arrow-win line { 
@@ -292,6 +299,17 @@
         stroke-width: 0;
     }
 
+    #godModeCheck:checked + span, /* If using a span wrapper (added below for safety) */
+    #godModeCheck:checked ~ label, /* Or just targeting siblings if applicable */
+    label:has(#godModeCheck:checked) {
+        filter: drop-shadow(0 0 5px #00ff00);
+    }
+    
+    #godModeContainer.active {
+        background: rgba(46, 204, 113, 0.2) !important;
+        border-color: rgba(46, 204, 113, 0.5) !important;
+    }
+
     /* Fix mobile vertical jump by overriding body alignment at the end of cascade */
     @media (max-width: 900px) {
       body { place-items: start center; }
@@ -318,7 +336,7 @@
 
   <div class="app">
     <header>
-      <h1>Endgame Trainer</h1>
+      <h1>Trivial Endgames</h1>
     </header>
 
     <section class="layout">
@@ -346,10 +364,17 @@
 
         <div style="display:flex; gap:10px; align-items:stretch;">
             <div id="status" class="status" style="flex-grow:1;">Initializing...</div>
+            
+            <div id="godModeContainer" class="hidden" style="display:flex; align-items:center; background:rgba(255,255,255,0.05); padding:0 10px; border-radius:14px; border:1px solid var(--border);" title="Analysis Mode">
+                <label style="cursor:pointer; font-size:1.2rem; margin:0; display:flex; align-items:center;">
+                    <input type="checkbox" id="godModeCheck" style="display:none;"> 🔎
+                </label>
+            </div>
+            
             <button id="btnUndo" class="hidden" style="width: 50px; padding:0; font-size:1.5rem; border-radius:14px;" title="Undo last move">↺</button>
         </div>
 
-        <div class="btnRow" id="guessControls">
+        <div class="btnRow" id="guessControls" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; align-items:center;">
           <button class="btn-win" id="btnWin">Win</button>
           <button class="btn-draw" id="btnDraw">Draw</button>
           <button class="btn-loss" id="btnLoss">Loss</button>
@@ -389,15 +414,15 @@
         }
 
         addMarker(type, square) {
-            // Only handle destination dots
-            if (type && type.class === "marker-dest") {
+            // Only handle destination dots and analysis mode markers
+            if (type && (type.class === "marker-dest" || type.class.startsWith("marker-god"))) {
                 super.addMarker(type, square);
             }
         }
 
         removeMarkers(type, square) {
-            // Only handle destination dots
-            if (!type || (type.class === "marker-dest")) {
+            // Only handle destination dots and analysis mode markers
+            if (!type || (type.class === "marker-dest" || type.class.startsWith("marker-god"))) {
                 super.removeMarkers(type, square);
             }
         }
@@ -406,6 +431,10 @@
     const MARKER_SELECTED = { class: "marker-selected", slice: "markerSquare" };
     const MARKER_SOURCE = { class: "marker-source", slice: "markerSquare" };
     const MARKER_DEST = { class: "marker-dest", slice: "markerDot" };
+    
+    const MARKER_GOD_WIN = { class: "marker-god-win", slice: "markerDot" };
+    const MARKER_GOD_DRAW = { class: "marker-god-draw", slice: "markerDot" };
+    const MARKER_GOD_LOSS = { class: "marker-god-loss", slice: "markerDot" };
     
     const ARROW_WIN = { ...ARROW_TYPE.default, class: "arrow-win" };
     const ARROW_DRAW = { ...ARROW_TYPE.default, class: "arrow-draw" };
@@ -431,6 +460,8 @@
       analyze: document.getElementById("analyzeLink"),
       guessControls: document.getElementById("guessControls"),
       btnUndo: document.getElementById("btnUndo"),
+      godModeContainer: document.getElementById("godModeContainer"),
+      godModeCheck: document.getElementById("godModeCheck"),
     };
 
     // --- State ---
@@ -446,6 +477,8 @@
     let selectedSquare = null;
     let cachedPositions = null;
     let cachedFilename = null;
+    let godMode = false;
+    let analysisMode = false;
 
     // --- Init Board ---
     board = new Chessboard(document.getElementById("board"), {
@@ -465,8 +498,11 @@
         switch (event.type) {
             case "moveInputStarted":
                 const p = chess.get(event.square);
+                // In Analysis Mode, allow picking up any piece relative to turn
+                const isTurnColor = p && p.color === chess.turn();
                 const isOurPiece = p && p.color === 'w';
-                if (isOurPiece) {
+                
+                if (godMode || analysisMode ? isTurnColor : isOurPiece) {
                     if (selectedSquare === event.square) {
                         selectSquare(null);
                         return false; // Stop interaction on deselect
@@ -502,6 +538,31 @@
     el.btnNew.addEventListener("click", startNewGame);
     el.btnPlayAgain.addEventListener("click", startNewGame);
     el.btnUndo.addEventListener("click", undoLastMove);
+    
+    if (el.godModeCheck) {
+        el.godModeCheck.addEventListener("change", (e) => {
+            godMode = e.target.checked;
+            if (godMode) el.godModeContainer.classList.add("active");
+            else el.godModeContainer.classList.remove("active");
+            
+            // Clear selection/markers on toggle to prevent stale state
+            selectSquare(null);
+            clearArrows();
+
+            if (godMode) {
+                 gameActive = true; // Ensure movement is allowed
+                 analysisMode = false;
+                 setStatus(null, "Analysis Mode Active.");
+                 setGuessEnabled(false);
+                 el.guessControls.classList.add("hidden");
+            } else {
+                 // Deactivated: Still allow movement (Sandbox mode)
+                 gameActive = true; 
+                 analysisMode = true;
+                 setStatus(null, "Analysis Mode (Sandbox).");
+            }
+        });
+    }
 
     async function undoLastMove() {
         // Allow undo even if gameActive is false (e.g. after blunder endGame)
@@ -536,20 +597,58 @@
     }
 
     function selectSquare(sq) {
+        clearArrows(); // Clear arrows on selection
         board.removeMarkers(MARKER_SOURCE);
         board.removeMarkers(MARKER_DEST);
         board.removeMarkers(MARKER_SELECTED); // Cleanup old
+        board.removeMarkers(MARKER_GOD_WIN);
+        board.removeMarkers(MARKER_GOD_DRAW);
+        board.removeMarkers(MARKER_GOD_LOSS);
         
         selectedSquare = sq;
         if (selectedSquare) {
             // Add Source Marker
             board.addMarker(MARKER_SOURCE, selectedSquare);
             
-            // Calculate and Add Dest Markers
-            const moves = chess.moves({ square: selectedSquare, verbose: true });
-            moves.forEach(m => {
-                board.addMarker(MARKER_DEST, m.to);
-            });
+            if (godMode && currentTbData && currentTbData.moves) {
+                // Analysis Mode: Use TB data to color destinations
+                // Filter moves starting from selectedSquare
+                const moves = currentTbData.moves.filter(m => m.uci.startsWith(selectedSquare));
+                
+                // Aggregate by destination to handle promotions (pick best outcome)
+                const destMap = new Map();
+                
+                moves.forEach(m => {
+                    const dest = m.uci.slice(2, 4);
+                    const wdl = categoryToWdl(m.category); // 2, 0, -2
+                    
+                    // Logic: -2 (Green/Win) > 0 (Orange/Draw) > 2 (Red/Loss)
+                    if (!destMap.has(dest)) {
+                        destMap.set(dest, wdl);
+                    } else {
+                        const currentBest = destMap.get(dest);
+                        // We want the MIN value (most negative is best for us)
+                        if (wdl < currentBest) {
+                            destMap.set(dest, wdl);
+                        }
+                    }
+                });
+                
+                destMap.forEach((wdl, dest) => {
+                    let marker = MARKER_GOD_DRAW;
+                    if (wdl === 2) marker = MARKER_GOD_LOSS;   // Opponent Wins -> We Lose -> Red
+                    else if (wdl === -2) marker = MARKER_GOD_WIN; // Opponent Loses -> We Win -> Green
+                    
+                    board.addMarker(marker, dest);
+                });
+                
+            } else {
+                // Standard Mode: Just show valid destinations
+                const moves = chess.moves({ square: selectedSquare, verbose: true });
+                moves.forEach(m => {
+                    board.addMarker(MARKER_DEST, m.to);
+                });
+            }
         }
     }
 
@@ -598,8 +697,17 @@
         selectSquare(null);
         setGuessEnabled(false);
         if(el.btnPlayAgain) el.btnPlayAgain.classList.add("hidden");
+        el.btnWin.classList.remove("hidden");
+        el.btnDraw.classList.remove("hidden");
+        el.btnLoss.classList.remove("hidden");
         if(el.guessControls) el.guessControls.classList.remove("hidden");
         if(el.btnUndo) el.btnUndo.classList.add("hidden");
+        if(el.godModeContainer) {
+            el.godModeContainer.classList.add("hidden");
+            el.godModeContainer.classList.remove("active");
+        }
+        if(el.godModeCheck) { el.godModeCheck.checked = false; godMode = false; }
+        analysisMode = false;
         setStatus("warn", "Generating position...");
         
         try {
@@ -649,6 +757,34 @@
         // Move is valid (already checked by cm-chessboard)
         chess.move({ from, to, promotion: 'q' });
         
+        // Analysis Mode / Sandbox Bypass
+        if (godMode || analysisMode) {
+             currentFen = chess.fen();
+             await board.setPosition(currentFen, true); // Ensure board sync
+             
+             // Update Undo visibility
+             if (el.btnUndo && chess.history().length > 0) el.btnUndo.classList.remove("hidden");
+
+             try {
+                currentTbData = await fetchTablebase(currentFen);
+                const turnStr = chess.turn() === 'w' ? "White" : "Black";
+                
+                if (godMode) {
+                    setStatus(null, `Analysis Mode: ${turnStr} to move.`);
+                } else {
+                    setStatus(null, `Analysis: ${turnStr} to move.`);
+                }
+                
+                if (chess.isGameOver()) {
+                    let msg = "Game Over.";
+                    if (chess.isCheckmate()) msg = "Checkmate!";
+                    if (chess.isStalemate()) msg = "Stalemate!";
+                    setStatus("ok", msg);
+                }
+             } catch(e) { console.error(e); }
+             return;
+        }
+
         isUserTurn = false;
         setStatus("warn", "Thinking...");
 
@@ -764,7 +900,11 @@
             setStatus("bad", `Wrong. It is a ${wdlToString(actualWdl)}.`);
         }
         setGuessEnabled(false);
-        el.guessControls.classList.add("hidden");
+        // Hide only guess buttons, show Analysis Mode toggle
+        el.btnWin.classList.add("hidden");
+        el.btnDraw.classList.add("hidden");
+        el.btnLoss.classList.add("hidden");
+        if (el.godModeContainer) el.godModeContainer.classList.remove("hidden");
     }
 
     function handleGameOver() {
@@ -812,12 +952,16 @@
         isUserTurn = false;
         setStatus(success ? "ok" : "bad", msg);
         setGuessEnabled(false);
-        // el.btnPlayAgain.classList.remove("hidden"); // Redundant
-        el.guessControls.classList.add("hidden");
+        
+        el.btnWin.classList.add("hidden");
+        el.btnDraw.classList.add("hidden");
+        el.btnLoss.classList.add("hidden");
+        
         if (!success) {
             streak = 0;
             updateStreak();
         }
+        if (el.godModeContainer) el.godModeContainer.classList.remove("hidden");
     }
 
     // --- Generation & Validation Logic ---
