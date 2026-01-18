@@ -20,9 +20,12 @@
       --btn: #1c2a44;
       --btnHover: #243659;
       
-      --highlight-win: #2ecc71;
-      --highlight-loss: #ff5c5c;
-      --highlight-draw: #ffcc66;
+      /* Spec Palette */
+      --color-analysis: #6FB4FF;
+      --color-win: #1F6F4A;
+      --color-draw: #FF8C00;
+      --color-loss: #6E2B36;
+      --color-neutral-icon: rgba(255,255,255,0.55);
 
       --pagePad: 24px;
       --cardPad: 16px;
@@ -282,9 +285,9 @@
     }
 
     /* Analysis Mode Markers (Flashy) */
-    .marker-god-win { fill: #00ff00; opacity: 0.5; pointer-events: none; }
-    .marker-god-draw { fill: #ffae00; opacity: 0.5; pointer-events: none; }
-    .marker-god-loss { fill: #ff0000; opacity: 0.5; pointer-events: none; }
+    .marker-god-win { fill: #00ff00; opacity: 0.6; pointer-events: none; }
+    .marker-god-draw { fill: #FF8C00; opacity: 0.6; pointer-events: none; }
+    .marker-god-loss { fill: #ff0000; opacity: 0.6; pointer-events: none; }
 
     /* Ensure markers are on top of pieces */
     #board svg .marker-dot {
@@ -305,16 +308,31 @@
     /* --- Layout --- */
 
     /* Link lines to custom markers defined in HTML */
-    .arrow-win line { 
-        stroke: #4ade80 !important; 
+    /* Target the group and all children to force stroke */
+    .arrow-win, .arrow-win * { 
+        stroke: var(--color-win) !important; 
+        stroke-width: 4px !important;
+        fill: none !important;
+    }
+    .arrow-win line, .arrow-win path {
         marker-end: url(#arrowHeadWin) !important;
     }
-    .arrow-draw line { 
-        stroke: #facc15 !important; 
+
+    .arrow-draw, .arrow-draw * { 
+        stroke: var(--color-draw) !important; 
+        stroke-width: 4px !important;
+        fill: none !important;
+    }
+    .arrow-draw line, .arrow-draw path {
         marker-end: url(#arrowHeadDraw) !important;
     }
-    .arrow-loss line { 
-        stroke: #f87171 !important; 
+
+    .arrow-loss, .arrow-loss * { 
+        stroke: var(--color-loss) !important; 
+        stroke-width: 4px !important;
+        fill: none !important;
+    }
+    .arrow-loss line, .arrow-loss path {
         marker-end: url(#arrowHeadLoss) !important;
     }
 
@@ -337,16 +355,9 @@
 
     /* Analysis Mode Toggle styling */
     #godModeBtn {
-        transition: background 0.2s ease, border-color 0.2s ease;
-        background: transparent !important;
-        border: none !important;
-        color: var(--color-neutral-icon); /* OFF state color */
+        /* Matches standard button style (linkBtn) */
+        color: var(--color-analysis); /* Always use the Analysis/Tool color */
         font-size: 1.2rem;
-    }
-
-    #godModeBtn.active {
-        background: rgba(80, 160, 255, 0.18) !important;
-        color: var(--color-analysis) !important; /* ON state color */
     }
 
     /* Fix mobile vertical jump by overriding body alignment at the end of cascade */
@@ -361,14 +372,14 @@
   <!-- Custom SVG Markers for Arrows -->
   <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
     <defs>
-      <marker id="arrowHeadWin" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80" />
+      <marker id="arrowHeadWin" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-win)" />
       </marker>
-      <marker id="arrowHeadDraw" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="#facc15" />
+      <marker id="arrowHeadDraw" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-draw)" />
       </marker>
-      <marker id="arrowHeadLoss" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="#f87171" />
+      <marker id="arrowHeadLoss" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-loss)" />
       </marker>
     </defs>
   </svg>
@@ -420,14 +431,14 @@
           <button id="btnNew">New Position</button>
           
           <div style="display:flex; gap:10px; align-items:center; width:100%;">
+              <button id="godModeBtn" class="linkBtn" style="flex:1 1 0;" title="Analysis Mode">
+                🔎
+              </button>
+              
               <a id="analyzeLink" class="linkBtn" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true" title="Analyze on Lichess" style="flex:1 1 0;">
                 <!-- Local Lichess Logo -->
                 <img src="Lichess-White-Logo-Online-Chess-49.png" alt="Lichess" height="28" style="object-fit: contain;">
               </a>
-              
-              <button id="godModeBtn" class="linkBtn" style="flex:1 1 0;" title="Analysis Mode">
-                🔎
-              </button>
           </div>
         </div>
       </div>
@@ -678,28 +689,22 @@
     
     if (el.godModeBtn) {
         el.godModeBtn.addEventListener("click", () => {
-            godMode = !godMode;
-            el.godModeBtn.classList.toggle("active", godMode);
+            if (godMode) return; // Cannot turn OFF via this button as per request
+            
+            godMode = true;
+            el.godModeBtn.classList.add("active");
             
             // Clear selection/markers on toggle to prevent stale state
             selectSquare(null);
             clearArrows();
 
-            if (godMode) {
-                 gameActive = true; // Ensure movement is allowed
-                 analysisMode = false;
-                 streakInvalidated = true;
-                 const turnStr = chess.turn() === 'w' ? "White" : "Black";
-                 setStatus(null, `Analysis Mode On: ${turnStr} to move.`);
-                 setGuessEnabled(false);
-                 el.guessControls.classList.add("hidden");
-            } else {
-                 // Deactivated: Still allow movement (Sandbox mode)
-                 gameActive = true; 
-                 analysisMode = true;
-                 const turnStr = chess.turn() === 'w' ? "White" : "Black";
-                 setStatus(null, `Analysis Mode Off: ${turnStr} to move.`);
-            }
+            gameActive = true; // Ensure movement is allowed
+            analysisMode = false;
+            streakInvalidated = true;
+            const turnStr = chess.turn() === 'w' ? "White" : "Black";
+            setStatus(null, `Analysis Mode On: ${turnStr} to move.`);
+            setGuessEnabled(false);
+            el.guessControls.classList.add("hidden");
         });
     }
 
@@ -771,12 +776,11 @@
                     const dest = m.uci.slice(2, 4);
                     const wdl = categoryToWdl(m.category); // 2, 0, -2
                     
-                    // Logic: -2 (Win) > 0 (Draw) > 2 (Loss)
                     if (!destMap.has(dest)) {
                         destMap.set(dest, wdl);
                     } else {
                         const currentBest = destMap.get(dest);
-                        // We want the MIN value (most negative is best for us)
+                        // We want the MIN value (Loss for opponent = -2 is best for us)
                         if (wdl < currentBest) {
                             destMap.set(dest, wdl);
                         }
@@ -785,8 +789,8 @@
                 
                 destMap.forEach((wdl, dest) => {
                     let marker = MARKER_GOD_DRAW;
-                    if (wdl === 2) marker = MARKER_GOD_LOSS;   // Opponent Wins -> We Lose -> Red
-                    else if (wdl === -2) marker = MARKER_GOD_WIN; // Opponent Loses -> We Win -> Green
+                    if (wdl === -2) marker = MARKER_GOD_WIN;   // Opponent Loses -> I Win -> Green
+                    else if (wdl === 2) marker = MARKER_GOD_LOSS; // Opponent Wins -> I Lose -> Red
                     
                     board.addMarker(marker, dest);
                 });
@@ -1481,8 +1485,14 @@
         if (!moves.length) return;
 
         // Map category to WDL and determine if any move is winning for current player
-        // Reminder: Category 'loss' (-2) is WIN for us. Category 'win' (2) is LOSS for us.
         const movesWithWdl = moves.map(m => ({ ...m, wdl: categoryToWdl(m.category) }));
+        
+        // Collect unique outcomes present
+        const outcomes = new Set(movesWithWdl.map(m => m.wdl));
+        
+        // If all moves have the same outcome, show nothing
+        if (outcomes.size <= 1) return;
+
         const hasWinningMove = movesWithWdl.some(m => m.wdl === -2);
 
         for (const m of movesWithWdl) {
@@ -1499,7 +1509,7 @@
             if (hasWinningMove && m.wdl === 0) continue;
 
             // Convert TB WDL to our color WDL
-            // win (+2) for us = -(-2)
+            // Opponent Loss (-2) = Our Win (2) -> Green
             const moveWdl = -m.wdl; 
 
             let arrowType = null;
