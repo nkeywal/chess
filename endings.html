@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Trivial Endgames</title>
 
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/assets/chessboard.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/assets/extensions/arrows/arrows.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/assets/chessboard.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/assets/extensions/arrows/arrows.css">
 
   <style>
     :root {
@@ -118,6 +118,19 @@
         border-radius: 8px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
+    
+    /* Target SVG background rect if present */
+    .promotion-dialog-group rect, 
+    .cm-chessboard-content .promotion-dialog-group rect {
+        fill: white !important;
+        stroke: #999 !important;
+    }
+    
+    /* Ensure context menu style dialogs are also white */
+    div[class*="promotion-dialog"] {
+        background-color: white !important;
+    }
+
     .cm-chessboard-promotion-dialog .promotion-piece {
         cursor: pointer;
     }
@@ -428,10 +441,10 @@
        document.getElementById("status").className = "status bad";
     };
 
-    import { Chessboard, COLOR, BORDER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/Chessboard.js";
-    import { Arrows, ARROW_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/extensions/arrows/Arrows.js";
-    import { Markers, MARKER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/extensions/markers/Markers.js";
-    import { PromotionDialog } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/extensions/promotion-dialog/PromotionDialog.js";
+    import { Chessboard, COLOR, BORDER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/Chessboard.js";
+    import { Arrows, ARROW_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/extensions/arrows/Arrows.js";
+    import { Markers, MARKER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/extensions/markers/Markers.js";
+    import { PromotionDialog } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/extensions/promotion-dialog/PromotionDialog.js";
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.7/+esm";
 
     // Custom Extension to render specific markers on top of pieces
@@ -451,12 +464,32 @@
 
         moveToTop() {
             const svg = this.chessboard.view.svg;
-            // Check if markerGroup exists and is NOT already the last child
-            if (this.markerGroup && svg && svg.lastElementChild !== this.markerGroup) {
-                // Temporarily disconnect observer to avoid infinite loop (though check above should prevent it)
-                // Actually, appendChild triggers observer. 
-                // But the check `svg.lastElementChild !== this.markerGroup` prevents re-appending if already top.
-                svg.appendChild(this.markerGroup);
+            if (this.markerGroup && svg) {
+                let piecesGroup = null;
+                
+                // Find pieces group by looking for 'image' or 'use' elements (pieces)
+                // cm-chessboard usually puts pieces in a specific group
+                const groups = svg.querySelectorAll("g");
+                for (const g of groups) {
+                    if (g !== this.markerGroup && (g.querySelector("image") || g.querySelector("use"))) {
+                        // Check if this group seems to be the main pieces layer (has many children or is large)
+                        // This is a heuristic.
+                        piecesGroup = g;
+                        // Keep looking for the *last* such group (in case of animations/ghosts)
+                    }
+                }
+
+                if (piecesGroup) {
+                    // Insert AFTER the pieces group
+                    if (piecesGroup.nextSibling !== this.markerGroup) {
+                        svg.insertBefore(this.markerGroup, piecesGroup.nextSibling);
+                    }
+                } else {
+                    // Fallback
+                    if (svg.lastElementChild !== this.markerGroup) {
+                        svg.appendChild(this.markerGroup);
+                    }
+                }
             }
         }
 
@@ -530,7 +563,7 @@
 
     // --- Init Board ---
     board = new Chessboard(document.getElementById("board"), {
-      assetsUrl: "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/assets/",
+      assetsUrl: "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/assets/",
       position: "8/8/8/8/8/8/8/8", // "empty" keyword crashes, use explicit FEN
       orientation: COLOR.white,
       style: {
@@ -863,166 +896,331 @@
         }
     }
 
-    async function handleUserMove(from, to, promotion = 'q') {
-        console.log("handleUserMove called with:", from, to, promotion);
-        clearArrows();
-        // Double check: clear any selection immediately
-        selectSquare(null);
+        async function handleUserMove(from, to, promotion = 'q') {
 
-        if (!gameActive) {
-            console.warn("handleUserMove aborted: gameActive is false");
-            return;
-        }
+            console.log("handleUserMove called with:", from, to, promotion);
 
-        // Move is valid (already checked by cm-chessboard)
-        try {
-            const moveResult = chess.move({ from, to, promotion });
-            if (!moveResult) {
-                console.error("chess.move failed for:", { from, to, promotion });
-                console.log("Current FEN:", chess.fen());
-                console.log("Turn:", chess.turn());
-                return false;
-            }
-            console.log("chess.move success:", moveResult);
-        } catch (err) {
-            console.error("chess.move threw error:", err);
-            return false;
-        }
-        
-        // Analysis Mode / Sandbox Bypass
-        if (godMode || analysisMode) {
-             currentFen = chess.fen();
-             await board.setPosition(currentFen, true); // Ensure board sync
-             
-             // Update Undo visibility
-             if (el.btnUndo && chess.history().length > 0) el.btnUndo.classList.remove("hidden");
+            clearArrows();
 
-             try {
-                currentTbData = await fetchTablebase(currentFen);
-                const turnStr = chess.turn() === 'w' ? "White" : "Black";
-                
-                if (godMode) {
-                    setStatus(null, `Analysis Mode On: ${turnStr} to move.`);
-                } else {
-                    setStatus(null, `Analysis Mode Off: ${turnStr} to move.`);
-                }
-                
-                if (chess.isGameOver()) {
-                    let msg = "Game Over.";
-                    if (chess.isCheckmate()) msg = "Checkmate!";
-                    if (chess.isStalemate()) msg = "Stalemate!";
-                    setStatus("ok", msg);
-                }
-             } catch(e) { console.error(e); }
-             return true;
-        }
+            selectSquare(null);
 
-        isUserTurn = false;
-        setStatus("warn", "Thinking...");
+    
 
-        // Evaluate Move
-        const prevWdl = currentTbData.wdl;
-        
-        // Fetch new data
-        try {
-            const newFen = chess.fen();
-            console.log("Fetching response for FEN:", newFen);
-            const newData = await fetchTablebase(newFen);
-            console.log("Response received:", newData);
-            
-            // Check blunder
-            // White moved. Now Black to move.
-            // If White was Winning (2), Black should be Losing (-2).
-            // If White was Drawing (0), Black should be Drawing (0).
-            
-            let failed = false;
-            let msg = "";
+            if (!gameActive) {
 
-            if (prevWdl === 2) { // We were winning
-                 if (newData.wdl !== -2) { // Opponent not losing
-                     failed = true;
-                     // newData.wdl: 2 (Opponent Wins) -> We Lost
-                     // newData.wdl: 0 (Draw) -> We Drew
-                     const outcome = newData.wdl === 2 ? "Loss" : "Draw";
-                     msg = `Blunder! You turned a Win into a ${outcome}.`;
-                 }
-            } else if (prevWdl === 0) { // Drawing
-                 if (newData.wdl === 2) { // Opponent Winning
-                     failed = true;
-                     msg = "Blunder! You turned a Draw into a Loss.";
-                 }
-            }
-            
-            if (failed) {
-                endGame(false, msg);
-                if (el.btnUndo) el.btnUndo.classList.remove("hidden");
-                // Revert board to show? No, keep it.
+                console.warn("handleUserMove aborted: gameActive is false");
+
                 return;
+
             }
 
-            if (chess.isGameOver()) {
-                handleGameOver();
-                return true;
+    
+
+            // Move is valid (already checked by cm-chessboard)
+
+            try {
+
+                const moveResult = chess.move({ from, to, promotion });
+
+                if (!moveResult) {
+
+                    console.error("chess.move failed for:", { from, to, promotion });
+
+                    console.log("Current FEN:", chess.fen());
+
+                    console.log("Turn:", chess.turn());
+
+                    return false;
+
+                }
+
+                console.log("chess.move success:", moveResult);
+
+            } catch (err) {
+
+                console.error("chess.move threw error:", err);
+
+                return false;
+
             }
 
-            // Computer Reply (Best Move)
-            if (newData.moves && newData.moves.length > 0) {
-                let bestMove = newData.moves[0];
-                console.log("Computer best move (default):", bestMove.uci);
+            
 
-                // Tie-break for Draw: Prefer no capture
-                const bestWdl = categoryToWdl(bestMove.category);
-                if (bestWdl === 0) { // If best outcome is Draw
-                    // Filter moves that preserve the Draw
-                    const drawMoves = newData.moves.filter(m => categoryToWdl(m.category) === 0);
-                    
-                    // Look for non-capture among draw moves
-                    // Using SAN to detect capture ('x')
-                    const nonCapture = drawMoves.find(m => m.san && !m.san.includes('x'));
-                    
-                    if (nonCapture) {
-                        console.log("Switched to non-capture draw move:", nonCapture.uci);
-                        bestMove = nonCapture;
-                    }
-                }
+            await handleUserMovePostProcess();
 
-                const uci = bestMove.uci;
-                const fromC = uci.slice(0, 2);
-                const toC = uci.slice(2, 4);
-                const promoC = uci.length > 4 ? uci[4] : undefined; // e.g. "a7a8q" -> 'q'
-                
-                chess.move({ from: fromC, to: toC, promotion: promoC || 'q' });
-                await board.setPosition(chess.fen(), true);
-                
-                if (chess.isGameOver()) {
-                    handleGameOver();
-                    return true;
-                }
-                
-                // Update state
-                currentFen = chess.fen();
-                currentTbData = await fetchTablebase(currentFen);
-                
-                isUserTurn = true;
-                if (!el.btnWin.classList.contains("hidden")) {
-                    setStatus(null, "Guess result or Play a move.");
-                } else {
-                    setStatus(null, "");
-                }
-                
-                if (el.btnUndo && chess.history().length > 0) {
-                    el.btnUndo.classList.remove("hidden");
-                }
-                // updateLinks removed
-            } else {
-                handleGameOver();
-            }
             return true;
 
-        } catch (e) {
-            setStatus("bad", "Error: " + e.message);
         }
-    }
+
+    
+
+        async function handleUserMovePostProcess() {
+
+            // Analysis Mode / Sandbox Bypass
+
+            if (godMode || analysisMode) {
+
+                 currentFen = chess.fen();
+
+                 await board.setPosition(currentFen, true); // Ensure board sync
+
+                 
+
+                 // Update Undo visibility
+
+                 if (el.btnUndo && chess.history().length > 0) el.btnUndo.classList.remove("hidden");
+
+    
+
+                 try {
+
+                    currentTbData = await fetchTablebase(currentFen);
+
+                    const turnStr = chess.turn() === 'w' ? "White" : "Black";
+
+                    
+
+                    if (godMode) {
+
+                        setStatus(null, `Analysis Mode On: ${turnStr} to move.`);
+
+                    } else {
+
+                        setStatus(null, `Analysis Mode Off: ${turnStr} to move.`);
+
+                    }
+
+                    
+
+                    if (chess.isGameOver()) {
+
+                        let msg = "Game Over.";
+
+                        if (chess.isCheckmate()) msg = "Checkmate!";
+
+                        if (chess.isStalemate()) msg = "Stalemate!";
+
+                        setStatus("ok", msg);
+
+                    }
+
+                 } catch(e) { console.error(e); }
+
+                 return;
+
+            }
+
+    
+
+            isUserTurn = false;
+
+            setStatus("warn", "Thinking...");
+
+    
+
+            // Evaluate Move
+
+            const prevWdl = currentTbData.wdl;
+
+            
+
+            // Fetch new data
+
+            try {
+
+                const newFen = chess.fen();
+
+                console.log("Fetching response for FEN:", newFen);
+
+                const newData = await fetchTablebase(newFen);
+
+                console.log("Response received:", newData);
+
+                
+
+                // Check blunder
+
+                // White moved. Now Black to move.
+
+                // If White was Winning (2), Black should be Losing (-2).
+
+                // If White was Drawing (0), Black should be Drawing (0).
+
+                
+
+                let failed = false;
+
+                let msg = "";
+
+    
+
+                if (prevWdl === 2) { // We were winning
+
+                     if (newData.wdl !== -2) { // Opponent not losing
+
+                         failed = true;
+
+                         // newData.wdl: 2 (Opponent Wins) -> We Lost
+
+                         // newData.wdl: 0 (Draw) -> We Drew
+
+                         const outcome = newData.wdl === 2 ? "Loss" : "Draw";
+
+                         msg = `Blunder! You turned a Win into a ${outcome}.`;
+
+                     }
+
+                } else if (prevWdl === 0) { // Drawing
+
+                     if (newData.wdl === 2) { // Opponent Winning
+
+                         failed = true;
+
+                         msg = "Blunder! You turned a Draw into a Loss.";
+
+                     }
+
+                }
+
+                
+
+                if (failed) {
+
+                    endGame(false, msg);
+
+                    if (el.btnUndo) el.btnUndo.classList.remove("hidden");
+
+                    // Revert board to show? No, keep it.
+
+                    return;
+
+                }
+
+    
+
+                if (chess.isGameOver()) {
+
+                    handleGameOver();
+
+                    return;
+
+                }
+
+    
+
+                // Computer Reply (Best Move)
+
+                if (newData.moves && newData.moves.length > 0) {
+
+                    let bestMove = newData.moves[0];
+
+                    console.log("Computer best move (default):", bestMove.uci);
+
+    
+
+                    // Tie-break for Draw: Prefer no capture
+
+                    const bestWdl = categoryToWdl(bestMove.category);
+
+                    if (bestWdl === 0) { // If best outcome is Draw
+
+                        // Filter moves that preserve the Draw
+
+                        const drawMoves = newData.moves.filter(m => categoryToWdl(m.category) === 0);
+
+                        
+
+                        // Look for non-capture among draw moves
+
+                        // Using SAN to detect capture ('x')
+
+                        const nonCapture = drawMoves.find(m => m.san && !m.san.includes('x'));
+
+                        
+
+                        if (nonCapture) {
+
+                            console.log("Switched to non-capture draw move:", nonCapture.uci);
+
+                            bestMove = nonCapture;
+
+                        }
+
+                    }
+
+    
+
+                    const uci = bestMove.uci;
+
+                    const fromC = uci.slice(0, 2);
+
+                    const toC = uci.slice(2, 4);
+
+                    const promoC = uci.length > 4 ? uci[4] : undefined; // e.g. "a7a8q" -> 'q'
+
+                    
+
+                    chess.move({ from: fromC, to: toC, promotion: promoC || 'q' });
+
+                    await board.setPosition(chess.fen(), true);
+
+                    
+
+                    if (chess.isGameOver()) {
+
+                        handleGameOver();
+
+                        return;
+
+                    }
+
+                    
+
+                    // Update state
+
+                    currentFen = chess.fen();
+
+                    currentTbData = await fetchTablebase(currentFen);
+
+                    
+
+                    isUserTurn = true;
+
+                    if (!el.btnWin.classList.contains("hidden")) {
+
+                        setStatus(null, "Guess result or Play a move.");
+
+                    } else {
+
+                        setStatus(null, "");
+
+                    }
+
+                    
+
+                    if (el.btnUndo && chess.history().length > 0) {
+
+                        el.btnUndo.classList.remove("hidden");
+
+                    }
+
+                    // updateLinks removed
+
+                } else {
+
+                    handleGameOver();
+
+                }
+
+    
+
+            } catch (e) {
+
+                setStatus("bad", "Error: " + e.message);
+
+            }
+
+        }
 
     function handleGuess(guessWdl) {
         if (!gameActive) return;
