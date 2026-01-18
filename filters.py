@@ -7,6 +7,39 @@ import chess
 from typing import Any, Mapping
 
 
+# ----------------------------
+# Hint helpers (optional)
+# ----------------------------
+
+def mask_files(f_min: int, f_max: int) -> int:
+    """
+    Bitmask of squares with file in [f_min, f_max], where file a=0..h=7.
+    """
+    m = 0
+    for sq in range(64):
+        f = sq & 7
+        if f_min <= f <= f_max:
+            m |= (1 << sq)
+    return m
+
+
+def mask_ranks(ranks: list[int]) -> int:
+    """
+    Bitmask of squares with rank in ranks, where rank 0..7 (0 is 1st rank).
+    """
+    rs = set(ranks)
+    m = 0
+    for sq in range(64):
+        r = sq >> 3
+        if r in rs:
+            m |= (1 << sq)
+    return m
+
+
+# ----------------------------
+# Generic filters
+# ----------------------------
+
 def filter_notb_generic(board: chess.Board) -> bool:
     """
     Cheap generic filter that runs before any tablebase probing.
@@ -14,15 +47,14 @@ def filter_notb_generic(board: chess.Board) -> bool:
     Return True to keep the position for the next stage (TB stage),
     or False to reject early.
     """
-    
     moves_iter = iter(board.legal_moves)
     try:
         next(moves_iter)
         next(moves_iter)
     except StopIteration:
         return False
-    
-    return True 
+
+    return True
 
 
 def filter_tb_generic(board: chess.Board, tb: Mapping[str, Any]) -> bool:
@@ -40,15 +72,9 @@ def filter_tb_generic(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     return True
 
 
-
-
-# Optional material-specific functions can be added as needed, e.g.:
-# def filter_notb_kp_vs_kr(board: chess.Board) -> bool:
-#     return True
-#
-# def filter_tb_kp_vs_kr(board: chess.Board, tb: Mapping[str, Any]) -> bool:
-#     return True
-
+# ----------------------------
+# Material-specific filters
+# ----------------------------
 
 def filter_notb_kr_vs_krp(board: chess.Board) -> bool:
     """
@@ -116,13 +142,13 @@ def filter_tb_kr_vs_krp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
         pf, pr = chess.square_file(p), chess.square_rank(p)
         wk = board.king(chess.WHITE)
         wkf, wkr = chess.square_file(wk), chess.square_rank(wk)
-        
+
         if wkr > pr:
             return False
 
         if max(abs(wkf - pf), abs(wkr - pr)) > 2:
-            return False            	   
-	
+            return False
+
         return True
 
     # C. Draw -> precision save.
@@ -134,7 +160,7 @@ def filter_tb_kr_vs_krp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
         outcome = tb["probe_move"](move)["wdl"]
         if outcome < 0:
             losing_exists = True
-        else: # drawing move
+        else:  # drawing move
             piece = board.piece_at(move.from_square)
             if piece.piece_type == chess.ROOK:
                 drawing_rook_moves += 1
@@ -144,7 +170,7 @@ def filter_tb_kr_vs_krp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
                 drawing_king_moves += 1
                 if drawing_king_moves >= 2 or drawing_rook_moves >= 1:
                     return False
-                    
+
     if not losing_exists:
         return False
 
@@ -155,16 +181,14 @@ def filter_notb_kbp_vs_kb(board: chess.Board) -> bool:
     """
     KBP (White) vs KB (Black) no-TB filter.
     """
-    
     if board.is_check():
-        return False    
-    
+        return False
+
     wk = board.king(chess.WHITE)
     bk = board.king(chess.BLACK)
     wp = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
     wb = next(iter(board.pieces(chess.BISHOP, chess.WHITE)))
     bb = next(iter(board.pieces(chess.BISHOP, chess.BLACK)))
-
 
     # Bishops must be on the same color squares.
     if (chess.square_file(wb) + chess.square_rank(wb)) % 2 != (
@@ -174,7 +198,7 @@ def filter_notb_kbp_vs_kb(board: chess.Board) -> bool:
 
     pf, pr = chess.square_file(wp), chess.square_rank(wp)
 
-    # White pawn: files b-g, ranks 5/6 (0-based 4/5).
+    # White pawn: files b-g, ranks 4/5/6 (0-based 3/4/5).
     if pf < 1 or pf > 6:
         return False
     if pr not in (3, 4, 5):
@@ -187,7 +211,6 @@ def filter_notb_kbp_vs_kb(board: chess.Board) -> bool:
         return False
     if max(abs(bkf - pf), abs(bkr - pr)) > 4:
         return False
-
 
     return True
 
@@ -230,7 +253,6 @@ def filter_tb_kbp_vs_kb(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     return False
 
 
-
 def filter_notb_krp_vs_kr(board: chess.Board) -> bool:
     """
     KRP (White) vs KR (Black).
@@ -238,7 +260,7 @@ def filter_notb_krp_vs_kr(board: chess.Board) -> bool:
     """
     wk = board.king(chess.WHITE)
     bk = board.king(chess.BLACK)
-    
+
     # Safe extraction
     try:
         wp = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
@@ -251,29 +273,30 @@ def filter_notb_krp_vs_kr(board: chess.Board) -> bool:
 
     # 1. Pawn: files b-g, ranks index 4/5 (human 5/6).
     # This is the decision zone (Lucena vs Philidor).
-    if pf < 1 or pf > 6: return False
-    if pr not in (4, 5): return False 
+    if pf < 1 or pf > 6:
+        return False
+    if pr not in (4, 5):
+        return False
 
     # 2. Safety: no check to the white king (essential for evaluation).
-    if board.is_check(): return False
+    if board.is_check():
+        return False
 
     # 3. White king: must support the pawn (distance <= 2).
-    # If it is farther, it is not useful.
     wkf, wkr = chess.square_file(wk), chess.square_rank(wk)
-    if max(abs(wkf - pf), abs(wkr - pr)) > 2: return False
-
-    # (NOTE: The black king distance constraint was removed
-    # to allow "cut off" kings far away).
+    if max(abs(wkf - pf), abs(wkr - pr)) > 2:
+        return False
 
     # 4. Activity: no immediate capture (tactical cleanup).
     for mv in board.legal_moves:
-        if board.is_capture(mv): return False
+        if board.is_capture(mv):
+            return False
 
-    # 5. Black rook: major correction here.
+    # 5. Black rook:
     # It must not attack the king (check) or the rook (exchange),
     # BUT it must be able to attack the pawn (foundation of defense).
     br_attacks = board.attacks(br)
-    for sq in (wk, wr): # <-- wp was removed from this list!
+    for sq in (wk, wr):  # wp was removed from this list!
         if (br_attacks >> sq) & 1:
             return False
 
@@ -298,9 +321,10 @@ def filter_tb_krp_vs_kr(board: chess.Board, tb: Mapping[str, Any]) -> bool:
         return False
 
     wdl = tb["wdl"]
-    
+
     # Reject losses: too rare or caused by blunders.
-    if wdl < 0: return False
+    if wdl < 0:
+        return False
 
     # --- Case 1: Win (seek precision / Lucena) ---
     if wdl > 0:
@@ -308,39 +332,32 @@ def filter_tb_krp_vs_kr(board: chess.Board, tb: Mapping[str, Any]) -> bool:
         for move in board.legal_moves:
             if tb["probe_move"](move)["wdl"] == 1:
                 winning += 1
-                if winning > 1: 
-                    return False # Too easy if multiple winning lines exist.
-        return winning == 1 # Exactly one winning move (bridge-building, etc.).
+                if winning > 1:
+                    return False  # Too easy if multiple winning lines exist.
+        return winning == 1  # Exactly one winning move.
 
     # --- Case 2: Draw (seek the illusion of a win) ---
     if wdl == 0:
         wp = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
         wk = board.king(chess.WHITE)
         bk = board.king(chess.BLACK)
-        
+
         pr = chess.square_rank(wp)
         pf = chess.square_file(wp)
         wkr = chess.square_rank(wk)
         bkf = chess.square_file(bk)
 
         # 1. Activity illusion: the white king is in front of or next to the pawn.
-        # If it is behind (wkr < pr), it is passive and the draw is obvious.
-        if wkr < pr: return False
+        if wkr < pr:
+            return False
 
-        # 2. Passage illusion: the black king is NOT in front of the pawn.
-        # If it is on the same file (bkf == pf), it visibly blocks.
-        # We want it on the side (cut off or flank) so the player thinks "It's free!".
-        if bkf == pf: return False
-        
+        # 2. Passage illusion: the black king is NOT in front of the pawn (same file).
+        if bkf == pf:
+            return False
+
         return True
 
     return False
-
-
-
-
-###################################"""
-# --- filters.py additions for: White K vs Black KP ---
 
 
 def filter_notb_k_vs_kp(board: chess.Board) -> bool:
@@ -384,14 +401,12 @@ def filter_notb_k_vs_kp(board: chess.Board) -> bool:
     return True
 
 
-
 def filter_tb_k_vs_kp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     """
     K vs KP TB-specific filter (White POV outcomes):
 
     - If draw (tb["wdl"] == 0): keep only if exactly one first move draws.
-    - If White loss (tb["wdl"] == -1): keep only if White king rank <= pawn rank
-      (ranks decrease towards 0 for White here, so king is "lower" or same as the pawn towards promotion).
+    - If White loss (tb["wdl"] == -1): keep only if White king rank <= pawn rank.
     - If White win (tb["wdl"] == +1): keep the position.
     """
     dtm = tb["dtm"]
@@ -417,11 +432,6 @@ def filter_tb_k_vs_kp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     return True
 
 
-
-################################################""
-
-# --- filters.py additions for: White KP vs Black K ---
-
 def filter_notb_kp_vs_k(board: chess.Board) -> bool:
     """
     KP vs K no-TB specific filter (White to move):
@@ -429,33 +439,36 @@ def filter_notb_kp_vs_k(board: chess.Board) -> bool:
     - The White pawn must be on human rank 3/4/5 (0-based rank 2/3/4).
     - Reject if the Black king is behind the pawn (bkr < pr) AND the White king does not block the pawn
       (i.e., White king is not on the square immediately in front of the pawn).
+    - Reject if the black king is outside the pawn's race square AND the white king is not on the pawn's file
+      ahead of the pawn (simple necessary-condition heuristic).
     """
     p = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
     wk = board.king(chess.WHITE)
     bk = board.king(chess.BLACK)
 
-    pr = chess.square_rank(p)
+    pf, pr = chess.square_file(p), chess.square_rank(p)
     if pr not in (2, 3, 4):
         return False
 
-    bkr = chess.square_rank(bk)
+    wkf, wkr = chess.square_file(wk), chess.square_rank(wk)
+    bkf, bkr = chess.square_file(bk), chess.square_rank(bk)
 
     # "Block the pawn" = occupy the square directly in front of it (same file, rank+1).
-    # For a white pawn on rank 7 this would be offboard, but rank 7 is excluded by your global pawn rule anyway.
     pawn_front = p + 8
 
     if bkr < pr and wk != pawn_front:
         return False
 
-    # Reject if the black king is outside the pawn's square and the white king is not on the pawn's path.
+    # Simple race-square necessary condition (kept close to your intent, but fixed variables).
     moves_to_promote = 7 - pr
-    promo_sq = chess.square(pf, 7)
+
+    # If black king is farther from the promotion square than the pawn's remaining moves,
+    # then require the white king to already be on the pawn file, not behind the pawn.
     if max(abs(bkf - pf), abs(bkr - 7)) > moves_to_promote:
         if not (wkf == pf and wkr >= pr):
             return False
 
     return True
-
 
 
 def filter_tb_kp_vs_k(board: chess.Board, tb: Mapping[str, Any]) -> bool:
@@ -487,18 +500,13 @@ def filter_tb_kp_vs_k(board: chess.Board, tb: Mapping[str, Any]) -> bool:
 
         if max(abs(wkf - pf), abs(wkr - pr)) > 2:
             return False
-            
+
         # White king more than 1 rank behind the pawn => reject.
         if pr - wkr > 1:
             return False
 
     return True
 
-
-
-#######################################################################################""
-
-# --- filters.py additions for: White KR vs Black KP ---
 
 def filter_notb_kr_vs_kp(board: chess.Board) -> bool:
     """
@@ -559,18 +567,7 @@ def filter_notb_kr_vs_kp(board: chess.Board) -> bool:
 
 def filter_tb_kr_vs_kp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     """
-    KR vs KP TB-specific filter (White POV outcomes):
-
-    - Reject White losses (tb["wdl"] == -1).
-    - If White wins (tb["wdl"] == +1): exactly one first move must also be a win.
-    - If draw (tb["wdl"] == 0):
-        - Reject if the black pawn is on the 2nd rank (human), i.e. 0-based rank == 1.
-        - Enforce:
-            (1) At least one legal move loses (wdl == -1).
-            (2) All drawing moves are made by the same piece type (king OR rook).
-            (3) If drawing moves are king moves: at most 2 drawing moves.
-            (4) If drawing moves are rook moves: at most 4 drawing moves AND
-                all rook drawing moves go in the same direction (N/S/E/W).
+    KR vs KP TB-specific filter.
     """
     dtm = tb["dtm"]
     if dtm is not None and abs(dtm) < 11:
@@ -590,7 +587,6 @@ def filter_tb_kr_vs_kp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
         return winning == 1
 
     # Draw case.
-       
     p = next(iter(board.pieces(chess.PAWN, chess.BLACK)))
     wk = board.king(chess.WHITE)
     bk = board.king(chess.BLACK)
@@ -603,26 +599,21 @@ def filter_tb_kr_vs_kp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     if pr == 1:
         return False
 
-    rf = chess.square_file(r)
-    rr = chess.square_rank(r)
-
     bkf, bkr = chess.square_file(bk), chess.square_rank(bk)
 
     # Black king protects the pawn but is not in front of it
     if bkr < pr:
-    	return False
+        return False
 
     wkf, wkr = chess.square_file(wk), chess.square_rank(wk)
 
     # White king is not that "late"
     d_wk_p = max(abs(wkf - pf), abs(wkr - pr))
     if d_wk_p >= 4:
-        return False   
+        return False
 
     return True
 
-
-###############################################################################################"
 
 def filter_notb_kp_vs_kr(board: chess.Board) -> bool:
     """
@@ -645,7 +636,6 @@ def filter_notb_kp_vs_kr(board: chess.Board) -> bool:
         return False
 
     # Pawn must not be able to capture the rook immediately (White to move).
-    # White pawn captures to p+7 (down-left) or p+9 (down-right) in 0..63 indexing.
     if pf > 0 and r == p + 7:
         return False
     if pf < 7 and r == p + 9:
@@ -684,11 +674,10 @@ def filter_notb_kp_vs_kr(board: chess.Board) -> bool:
 
     return True
 
-    
+
 def filter_tb_kp_vs_kr(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     """
-    KP vs KR TB-specific filter:
-
+    KP vs KR TB-specific filter.
     """
     dtm = tb["dtm"]
     if dtm is not None and abs(dtm) < 11:
@@ -708,3 +697,62 @@ def filter_tb_kp_vs_kr(board: chess.Board, tb: Mapping[str, Any]) -> bool:
             return False
 
     return drawing_moves == 1 or (drawing_moves == 2 and non_drawing_moves > 4)
+
+
+# ----------------------------
+# Generation hints (5-piece cases)
+# ----------------------------
+# These are OPTIONAL. They must be NECESSARY conditions only.
+# They allow the generator to skip obviously-doomed placements early without touching the filters.
+
+def gen_hints_kr_vs_krp() -> Mapping[str, Any]:
+    """
+    5 pieces: White KR vs Black KRP.
+
+    From filter_notb_kr_vs_krp:
+      - black pawn: files b-g, ranks 2/3/4
+      - both kings within Chebyshev distance <= 3 of the pawn
+    """
+    return {
+        "piece_masks": {
+            (False, chess.PAWN): mask_files(1, 6) & mask_ranks([2, 3, 4]),
+        },
+        "wk_to_pawn_cheb": (0, 3),
+        "bk_to_pawn_cheb": (0, 3),
+    }
+
+
+def gen_hints_kbp_vs_kb() -> Mapping[str, Any]:
+    """
+    5 pieces: White KBP vs Black KB.
+
+    From filter_notb_kbp_vs_kb:
+      - white pawn: files b-g, ranks 3/4/5
+      - wk within <=2 of pawn, bk within <=4 of pawn
+      - bishops on same color squares (enforced as a generation hint)
+    """
+    return {
+        "piece_masks": {
+            (True, chess.PAWN): mask_files(1, 6) & mask_ranks([3, 4, 5]),
+        },
+        "wk_to_pawn_cheb": (0, 2),
+        "bk_to_pawn_cheb": (0, 4),
+        "bishops_same_color": True,
+    }
+
+
+def gen_hints_krp_vs_kr() -> Mapping[str, Any]:
+    """
+    5 pieces: White KRP vs Black KR.
+
+    From filter_notb_krp_vs_kr:
+      - white pawn: files b-g, ranks 4/5
+      - wk within <=2 of pawn
+    """
+    return {
+        "piece_masks": {
+            (True, chess.PAWN): mask_files(1, 6) & mask_ranks([4, 5]),
+        },
+        "wk_to_pawn_cheb": (0, 2),
+    }
+
