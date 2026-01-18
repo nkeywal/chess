@@ -32,11 +32,12 @@ def filter_notb_kp_vs_k(board: chess.Board) -> bool:
     if bkr < pr and wk != pawn_front:
         return False
 
-    # Necessary-condition heuristic about the king race to the promotion square.
+    # If Black king is outside the pawn's square and the White king is not on the pawn's path, reject.
     moves_to_promote = 7 - pr
-    if max(abs(bkf - pf), abs(bkr - 7)) > moves_to_promote:
-        if not (wkf == pf and wkr >= pr):
-            return False
+    bk_in_square = max(abs(bkf - pf), abs(bkr - 7)) <= moves_to_promote
+    wk_on_path = wkf == pf and wkr >= pr
+    if not bk_in_square and not wk_on_path:
+        return False
 
     return True
 

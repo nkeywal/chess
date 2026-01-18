@@ -80,3 +80,52 @@ done:
   tb_opened: True
   gaviota_dirs: ['gaviota/3', 'gaviota/4', 'gaviota/5']
   gen_hints_used: True (kbp_vs_kb)
+
+
+done:
+  output: out/KBP_KB.txt
+  elapsed: 1.31h
+  candidates_total: 27882440
+  valid_positions: 27882440
+  passed_notb: 9462520
+  accepted: 2078612
+  rejected_notb_generic: 438
+  rejected_notb_specific: 18419482
+  rejected_tb_generic: 0
+  rejected_tb_specific: 7383908
+  accepted_win: 1292054
+  accepted_draw: 786558
+  accepted_loss: 0
+  dtmWhiteMin: 11
+  dtmWhiteMax: 99
+  dtmWhiteAvg: 32.58
+  dtmBlackMin: n/a
+  dtmBlackMax: n/a
+  dtmBlackAvg: n/a
+  rate_valid_per_sec: 5,903
+  rate_accepted_per_sec: 440
+
+
+done:
+  output: out/KP_K.txt
+  elapsed: 2.8s
+  candidates_total: 163328
+  valid_positions: 163328
+  passed_notb: 40922
+  accepted: 4602
+  rejected_notb_generic: 32
+  rejected_notb_specific: 122374
+  rejected_tb_generic: 0
+  rejected_tb_specific: 36320
+  accepted_win: 2130
+  accepted_draw: 2472
+  accepted_loss: 0
+  dtmWhiteMin: 19
+  dtmWhiteMax: 51
+  dtmWhiteAvg: 33.27
+  dtmBlackMin: n/a
+  dtmBlackMax: n/a
+  dtmBlackAvg: n/a
+  rate_valid_per_sec: 57,606
+  rate_accepted_per_sec: 1,623
+

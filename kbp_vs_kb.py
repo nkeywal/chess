@@ -129,6 +129,10 @@ def filter_tb_kbp_vs_kb(board: chess.Board, tb: Mapping[str, Any]) -> bool:
             key = board._transposition_key
         else:
             key = hash(board)
+        if callable(key):
+            key = key()
+        if not isinstance(key, int):
+            key = hash(key)
         if key & 1 == 0:
             return False
 
