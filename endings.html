@@ -286,6 +286,7 @@
 
     /* Analysis Mode Markers (Flashy) */
     .marker-god-win { fill: #00ff00; opacity: 0.6; pointer-events: none; }
+    .marker-god-win-suboptimal { fill: #a0ffa0; opacity: 0.6; pointer-events: none; }
     .marker-god-draw { fill: #FF8C00; opacity: 0.6; pointer-events: none; }
     .marker-god-loss { fill: #ff0000; opacity: 0.6; pointer-events: none; }
 
@@ -317,8 +318,17 @@
     .arrow-win line, .arrow-win path {
         marker-end: url(#arrowHeadWin) !important;
     }
+    
+    .arrow-win-suboptimal, .arrow-win-suboptimal * { 
+        stroke: #4ade80 !important; 
+        stroke-width: 4px !important;
+        fill: none !important;
+    }
+    .arrow-win-suboptimal line, .arrow-win-suboptimal path {
+        marker-end: url(#arrowHeadWinSub) !important;
+    }
 
-    .arrow-draw, .arrow-draw * { 
+    .arrow-draw, .arrow-draw * {  
         stroke: var(--color-draw) !important; 
         stroke-width: 4px !important;
         fill: none !important;
@@ -373,7 +383,10 @@
   <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
     <defs>
       <marker id="arrowHeadWin" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-win)" />
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#1F6F4A" />
+      </marker>
+      <marker id="arrowHeadWinSub" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80" />
       </marker>
       <marker id="arrowHeadDraw" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
         <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-draw)" />
@@ -517,6 +530,7 @@
     const MARKER_GOD_LOSS = { class: "marker-god-loss", slice: "markerDot" };
     
     const ARROW_WIN = { ...ARROW_TYPE.default, class: "arrow-win" };
+    const ARROW_WIN_SUBOPTIMAL = { ...ARROW_TYPE.default, class: "arrow-win-suboptimal" };
     const ARROW_DRAW = { ...ARROW_TYPE.default, class: "arrow-draw" };
     const ARROW_LOSS = { ...ARROW_TYPE.default, class: "arrow-loss" };
 
@@ -1497,7 +1511,21 @@
         // If all moves have the same outcome, show nothing
         if (outcomes.size <= 1) return;
 
-        const hasWinningMove = movesWithWdl.some(m => m.wdl === -2);
+        const winningMoves = movesWithWdl.filter(m => m.wdl === -2);
+        const hasWinningMove = winningMoves.length > 0;
+        
+        // Find best DTM among winning moves (lowest absolute value, usually negative or positive depending on API, but we want shortest mate)
+        // Lichess DTM: Negative if we are winning? Or just distance?
+        // Usually abs(dtm) is distance.
+        let bestDtm = Infinity;
+        if (hasWinningMove) {
+            winningMoves.forEach(m => {
+                if (m.dtm !== undefined && m.dtm !== null) {
+                    const dist = Math.abs(m.dtm);
+                    if (dist < bestDtm) bestDtm = dist;
+                }
+            });
+        }
 
         for (const m of movesWithWdl) {
             const arrow = uciToArrow(m.uci);
@@ -1517,7 +1545,14 @@
             const moveWdl = -m.wdl; 
 
             let arrowType = null;
-            if (moveWdl === 2) arrowType = ARROW_WIN;
+            if (moveWdl === 2) {
+                // Check if optimal DTM
+                let isBest = true;
+                if (m.dtm !== undefined && m.dtm !== null) {
+                    if (Math.abs(m.dtm) > bestDtm) isBest = false;
+                }
+                arrowType = isBest ? ARROW_WIN : ARROW_WIN_SUBOPTIMAL;
+            }
             else if (moveWdl === 0) arrowType = ARROW_DRAW;
             else if (moveWdl === -2) arrowType = ARROW_LOSS;
 

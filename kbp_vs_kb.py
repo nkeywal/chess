@@ -45,6 +45,14 @@ def filter_notb_kbp_vs_kb(board: chess.Board) -> bool:
     if max(abs(bkf - pf), abs(bkr - pr)) > 4:
         return False
 
+    # Exclude if Black king blocks the promotion square and the bishop is the wrong color.
+    promo_sq = chess.square(pf, 7)
+    if bk == promo_sq:
+        promo_color = (chess.square_file(promo_sq) + chess.square_rank(promo_sq)) % 2
+        wb_color = (chess.square_file(wb) + chess.square_rank(wb)) % 2
+        if promo_color != wb_color:
+            return False
+
     # Stability: no check on the white king, no immediate capture.
     if board.is_check():
         return False
@@ -62,6 +70,30 @@ def filter_notb_kbp_vs_kb(board: chess.Board) -> bool:
         bk_attacks = board.attacks(bk)
         if not ((bk_attacks >> bb) & 1) and not ((bk_attacks >> wp) & 1):
             return False
+
+    # Exclude if the White king is on the Black bishop diagonal and the pawn is pinned.
+    if (board.attacks(bb) >> wp) & 1:
+        bbf, bbr = chess.square_file(bb), chess.square_rank(bb)
+        wkf, wkr = chess.square_file(wk), chess.square_rank(wk)
+        if abs(wkf - bbf) == abs(wkr - bbr):
+            df = 1 if wkf > bbf else -1
+            dr = 1 if wkr > bbr else -1
+            step = df + (dr * 8)
+            sq = bb
+            seen_pawn = False
+            blocked = False
+            while True:
+                sq += step
+                if sq == wk:
+                    break
+                if sq == wp:
+                    seen_pawn = True
+                    continue
+                if board.piece_at(sq) is not None:
+                    blocked = True
+                    break
+            if seen_pawn and not blocked:
+                return False
 
     return True
 
