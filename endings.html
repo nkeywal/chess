@@ -112,6 +112,16 @@
         stroke: none !important;
     }
 
+    /* Promotion Dialog visibility fix */
+    .cm-chessboard-promotion-dialog {
+        background: white !important;
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+    .cm-chessboard-promotion-dialog .promotion-piece {
+        cursor: pointer;
+    }
+
     .boardSizer {
       width: min(100%, var(--boardSize));
       height: min(100%, var(--boardSize));
@@ -552,6 +562,7 @@
                 return false;
                 
             case "validateMoveInput":
+                if (!gameActive && !godMode && !analysisMode) return false;
                 try {
                     const temp = new Chess(chess.fen());
                     // Check if move is legal (ignoring promotion for now to check basic validity)
@@ -585,30 +596,38 @@
                 
                 // Check for promotion
                 const temp = new Chess(chess.fen());
-                const piece = temp.get(event.squareFrom);
+                const sqFrom = event.squareFrom;
+                const sqTo = event.squareTo;
+                const piece = temp.get(sqFrom);
                 const isPawn = piece && piece.type === 'p';
-                const targetRank = event.squareTo[1];
+                const targetRank = sqTo[1];
                 const isPromo = isPawn && (targetRank === '1' || targetRank === '8');
 
                 if (event.legalMove) {
                     if (isPromo) {
                         // Show dialog
                         const side = piece.color === 'w' ? COLOR.white : COLOR.black;
-                        board.showPromotionDialog(event.squareTo, side, (result) => {
+                        board.showPromotionDialog(sqTo, side, (result) => {
                             if (result && result.piece) {
                                 // Result piece name e.g. "wq", "wr", "bq" -> char 'q', 'r'
                                 const promoChar = result.piece[1].toLowerCase();
-                                // Execute move with promotion
-                                board.setPosition(chess.fen()); // Revert visual state first? No, dialog handles it.
-                                // Actually, if we just let it sit, we need to apply move to chess.js
-                                handleUserMove(event.squareFrom, event.squareTo, promoChar);
+                                // Execute move logic first (updates chess.js state)
+                                handleUserMove(sqFrom, sqTo, promoChar).then(success => {
+                                    if (success) {
+                                        board.setPosition(chess.fen(), true);
+                                    } else {
+                                        console.error("Promotion move failed logic.");
+                                        board.setPosition(chess.fen(), true);
+                                    }
+                                });
                             } else {
                                 // Cancelled
                                 board.setPosition(chess.fen(), true);
                             }
                         });
+                        return true; // Let piece drop visually
                     } else {
-                        handleUserMove(event.squareFrom, event.squareTo);
+                        handleUserMove(sqFrom, sqTo);
                     }
                 }
                 return true;
@@ -845,14 +864,30 @@
     }
 
     async function handleUserMove(from, to, promotion = 'q') {
+        console.log("handleUserMove called with:", from, to, promotion);
         clearArrows();
         // Double check: clear any selection immediately
         selectSquare(null);
 
-        if (!gameActive) return;
+        if (!gameActive) {
+            console.warn("handleUserMove aborted: gameActive is false");
+            return;
+        }
 
         // Move is valid (already checked by cm-chessboard)
-        chess.move({ from, to, promotion });
+        try {
+            const moveResult = chess.move({ from, to, promotion });
+            if (!moveResult) {
+                console.error("chess.move failed for:", { from, to, promotion });
+                console.log("Current FEN:", chess.fen());
+                console.log("Turn:", chess.turn());
+                return false;
+            }
+            console.log("chess.move success:", moveResult);
+        } catch (err) {
+            console.error("chess.move threw error:", err);
+            return false;
+        }
         
         // Analysis Mode / Sandbox Bypass
         if (godMode || analysisMode) {
@@ -879,7 +914,7 @@
                     setStatus("ok", msg);
                 }
              } catch(e) { console.error(e); }
-             return;
+             return true;
         }
 
         isUserTurn = false;
@@ -927,7 +962,7 @@
 
             if (chess.isGameOver()) {
                 handleGameOver();
-                return;
+                return true;
             }
 
             // Computer Reply (Best Move)
@@ -961,7 +996,7 @@
                 
                 if (chess.isGameOver()) {
                     handleGameOver();
-                    return;
+                    return true;
                 }
                 
                 // Update state
@@ -982,6 +1017,7 @@
             } else {
                 handleGameOver();
             }
+            return true;
 
         } catch (e) {
             setStatus("bad", "Error: " + e.message);
