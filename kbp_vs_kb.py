@@ -52,11 +52,16 @@ def filter_notb_kbp_vs_kb(board: chess.Board) -> bool:
         if board.is_capture(mv):
             return False
 
-    # Bishops must not be en prise.
+    # White bishop must not be en prise.
     if board.attackers(chess.BLACK, wb):
         return False
-    if board.attackers(chess.WHITE, bb):
-        return False
+
+    # Exclude if White bishop can capture the Black bishop while the Black king
+    # neither protects the bishop nor attacks the White pawn.
+    if (board.attacks(wb) >> bb) & 1:
+        bk_attacks = board.attacks(bk)
+        if not ((bk_attacks >> bb) & 1) and not ((bk_attacks >> wp) & 1):
+            return False
 
     return True
 

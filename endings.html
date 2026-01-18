@@ -458,66 +458,54 @@
     import { PromotionDialog } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/extensions/promotion-dialog/PromotionDialog.js";
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.7/+esm";
 
-    // Custom Extension to render specific markers on top of pieces
-    class ForegroundMarkers extends Markers {
+    // Custom Extension to render ALL markers on top of pieces
+    class CustomMarkers extends Markers {
         constructor(chessboard, props) {
             super(chessboard, props);
             
-            // Use MutationObserver to ensure marker group stays on top (last child)
-            // This handles cases where cm-chessboard redraws pieces (appending them)
-            this.observer = new MutationObserver(() => this.moveToTop());
+            // Create a new SVG layer on top of everything
+            this.topSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            this.topSvg.style.position = "absolute";
+            this.topSvg.style.top = "0";
+            this.topSvg.style.left = "0";
+            this.topSvg.style.width = "100%";
+            this.topSvg.style.height = "100%";
+            this.topSvg.style.pointerEvents = "none";
+            this.topSvg.style.zIndex = "100";
             
+            // Append to the chessboard container
+            // chessboard.element is usually the container div
+            if (chessboard.element) {
+                chessboard.element.appendChild(this.topSvg);
+            } else if (chessboard.view && chessboard.view.element) {
+                chessboard.view.element.appendChild(this.topSvg);
+            }
+
+            // Sync viewBox and move markers
+            this.syncOverlay();
+            
+            // Keep syncing in case of resize/init delays
+            this.observer = new MutationObserver(() => this.syncOverlay());
             if (chessboard.view.svg) {
-                this.observer.observe(chessboard.view.svg, { childList: true });
-                this.moveToTop();
+                this.observer.observe(chessboard.view.svg, { attributes: true, attributeFilter: ['viewBox'] });
             }
         }
 
-        moveToTop() {
-            const svg = this.chessboard.view.svg;
-            if (this.markerGroup && svg) {
-                let piecesGroup = null;
+        syncOverlay() {
+            const mainSvg = this.chessboard.view.svg;
+            if (mainSvg && this.topSvg) {
+                // Sync viewBox
+                const viewBox = mainSvg.getAttribute("viewBox");
+                if (viewBox) this.topSvg.setAttribute("viewBox", viewBox);
                 
-                // Find pieces group by looking for 'image' or 'use' elements (pieces)
-                // cm-chessboard usually puts pieces in a specific group
-                const groups = svg.querySelectorAll("g");
-                for (const g of groups) {
-                    if (g !== this.markerGroup && (g.querySelector("image") || g.querySelector("use"))) {
-                        // Check if this group seems to be the main pieces layer (has many children or is large)
-                        // This is a heuristic.
-                        piecesGroup = g;
-                        // Keep looking for the *last* such group (in case of animations/ghosts)
-                    }
-                }
-
-                if (piecesGroup) {
-                    // Insert AFTER the pieces group
-                    if (piecesGroup.nextSibling !== this.markerGroup) {
-                        svg.insertBefore(this.markerGroup, piecesGroup.nextSibling);
-                    }
-                } else {
-                    // Fallback
-                    if (svg.lastElementChild !== this.markerGroup) {
-                        svg.appendChild(this.markerGroup);
-                    }
+                // Move markerGroup to top layer
+                if (this.markerGroup && this.markerGroup.parentNode !== this.topSvg) {
+                    this.topSvg.appendChild(this.markerGroup);
                 }
             }
         }
-
-        addMarker(type, square) {
-            // Handle dest/god markers AND source marker
-            if (type && (type.class === "marker-dest" || type.class.startsWith("marker-god") || type.class === "marker-source")) {
-                super.addMarker(type, square);
-                // Trigger check immediately just in case
-                this.moveToTop();
-            }
-        }
-
-        removeMarkers(type, square) {
-            if (!type || (type.class === "marker-dest" || type.class.startsWith("marker-god") || type.class === "marker-source")) {
-                super.removeMarkers(type, square);
-            }
-        }
+        
+        // No override for add/remove needed, they operate on markerGroup
     }
 
     const MARKER_SELECTED = { class: "marker-selected", slice: "markerSquare" };
@@ -572,6 +560,10 @@
     let analysisMode = false;
     let streakInvalidated = false;
 
+    function isReallyGameOver() {
+        return chess.isCheckmate() || (chess.isDraw() && !chess.isThreefoldRepetition());
+    }
+
     // --- Init Board ---
     board = new Chessboard(document.getElementById("board"), {
       assetsUrl: "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/assets/",
@@ -581,7 +573,7 @@
         pieces: { file: "pieces/standard.svg" },
         borderType: BORDER_TYPE.none
       },
-      extensions: [{ class: Arrows }, { class: Markers }, { class: PromotionDialog }, { class: ForegroundMarkers }]
+      extensions: [{ class: Arrows }, { class: PromotionDialog }, { class: CustomMarkers }]
     });
 
     board.enableMoveInput((event) => {
@@ -996,23 +988,27 @@
 
                     
 
-                    if (chess.isGameOver()) {
+                                    if (isReallyGameOver()) {
 
-                        let msg = "Game Over.";
+                    
 
-                        if (chess.isCheckmate()) msg = "Checkmate!";
+                                        handleGameOver();
 
-                        if (chess.isStalemate()) msg = "Stalemate!";
+                    
 
-                        setStatus("ok", msg);
+                                    }
 
-                    }
+                    
 
-                 } catch(e) { console.error(e); }
+                                 } catch(e) { console.error(e); }
 
-                 return;
+                    
 
-            }
+                                 return true;
+
+                    
+
+                            }
 
     
 
@@ -1102,7 +1098,7 @@
 
     
 
-                if (chess.isGameOver()) {
+                if (isReallyGameOver()) {
 
                     handleGameOver();
 
@@ -1170,7 +1166,7 @@
 
                     
 
-                    if (chess.isGameOver()) {
+                    if (isReallyGameOver()) {
 
                         handleGameOver();
 
@@ -1287,24 +1283,32 @@
         if (actualResult === 1) {
             // User Won
             success = true;
-            msg = "Checkmate! You Won!";
+            if (initialWdl === 1) msg = "You won a winning position.";
+            else if (initialWdl === 0) msg = "You won a drawn position!";
+            else msg = "You won a lost position!"; // Analysis Mode or miracle
         } else if (actualResult === -1) {
             // User Lost
-            success = false; // Usually failure unless expected loss?
-            if (initialWdl === 1) msg = "You lost a winning position.";
-            else if (initialWdl === 0) msg = "You lost a drawn position.";
-            else {
-                success = true; // Expected loss achieved?
-                msg = "You lost (as expected).";
+            if (initialWdl === 1) {
+                success = false;
+                msg = "You lost a winning position.";
+            } else if (initialWdl === 0) {
+                success = false;
+                msg = "You lost a drawn position.";
+            } else {
+                success = true; // Expected loss achieved? usually failure in training but ok here
+                msg = "You lost a lost position.";
             }
         } else {
             // Draw
             if (initialWdl === 1) {
                 success = false;
                 msg = "You drew a winning position.";
-            } else {
+            } else if (initialWdl === 0) {
                 success = true;
                 msg = "You drew a drawn position.";
+            } else {
+                success = true; // Saved a draw!
+                msg = "You drew a lost position!";
             }
         }
 

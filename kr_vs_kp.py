@@ -124,5 +124,9 @@ def filter_tb_kr_vs_kp(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     d_wk_p = max(abs(wkf - pf), abs(wkr - pr))
     if d_wk_p >= 4:
         return False
+    
+    d_r_p = max(abs(rf - pf), abs(rr - pr))        
+    if d_r_p > 4:
+        return False       
 
     return True

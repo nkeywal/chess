@@ -839,7 +839,6 @@ def main() -> None:
             "progress:"
             f" elapsed={fmt_elapsed(elapsed)}"
             f" candidates={candidates_total}"
-            f" valid={valid_positions}"
             f" passed_notb={passed_notb}"
             f" accepted={accepted}"
             f" rate_valid={rate_valid:,.0f}/s"
@@ -848,7 +847,6 @@ def main() -> None:
             f" notb_rej_specific={rejected_notb_specific}"
             f" tb_rej_generic={rejected_tb_generic}"
             f" tb_rej_specific={rejected_tb_specific}"
-            f" | tb_opened={tb_opened}"
         )
 
     # Piece cache avoids re-allocating chess.Piece objects.
