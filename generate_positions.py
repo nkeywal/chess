@@ -164,6 +164,54 @@ def groups_for_generation(material: Material) -> List[Tuple[bool, int, int]]:
     return groups
 
 
+
+def open_tablebase_native_fixed(dirs: list[Path]) -> Any:
+    """
+    Open NativeTablebase but fix the path list passed to libgtb:
+    - ensure NULL-terminated char** (argv-style), which some libgtb builds expect.
+    - define argtypes to avoid any ABI ambiguity.
+    """
+    import ctypes
+    import ctypes.util
+    import chess.gaviota
+
+    libname = ctypes.util.find_library("gtb") or "libgtb.so.1"
+    lib = ctypes.cdll.LoadLibrary(libname)
+
+    tb = chess.gaviota.NativeTablebase(lib)
+
+    # Be explicit about the C signature expected by python-chess.
+    # python-chess calls: tb_restart(verbosity:int, compression_scheme:int, paths:char**)
+    tb.libgtb.tb_restart.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_char_p)]
+    tb.libgtb.tb_restart.restype = ctypes.c_char_p
+
+    # Monkeypatch _tb_restart to build a NULL-terminated char** list.
+    def _tb_restart_null_terminated() -> None:
+        n = len(tb.paths)
+        c_paths = (ctypes.c_char_p * (n + 1))()
+        c_paths[:n] = [p.encode("utf-8") for p in tb.paths]
+        c_paths[n] = None  # NULL terminator (critical)
+
+        verbosity = ctypes.c_int(1)
+        compression_scheme = ctypes.c_int(4)
+
+        ret = tb.libgtb.tb_restart(verbosity, compression_scheme, c_paths)
+        if ret:
+            # optional: log ret.decode("utf-8")
+            pass
+
+        tb.c_paths = c_paths  # keep alive
+
+    tb._tb_restart = _tb_restart_null_terminated  # type: ignore[attr-defined]
+
+    # Now add directories normally.
+    tb.add_directory(str(dirs[0]))
+    for d in dirs[1:]:
+        tb.add_directory(str(d))
+
+    return tb
+
+
 # -----------------------------------
 # Fast generation helpers (bitboards)
 # -----------------------------------
@@ -860,9 +908,7 @@ def main() -> None:
 
             # Stage B: tablebase stage (lazy open).
             if tablebase is None:
-                tablebase = chess.gaviota.open_tablebase(str(gaviota_dirs[0]))
-                for d in gaviota_dirs[1:]:
-                    tablebase.add_directory(str(d))
+                tablebase = open_tablebase_native_fixed(gaviota_dirs)
                 tb_opened = True
 
             # Probe only DTM for the root position first.

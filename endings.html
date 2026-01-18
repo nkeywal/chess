@@ -421,6 +421,7 @@
     import { Chessboard, COLOR, BORDER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/Chessboard.js";
     import { Arrows, ARROW_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/extensions/arrows/Arrows.js";
     import { Markers, MARKER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/extensions/markers/Markers.js";
+    import { PromotionDialog } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.7.8/src/extensions/promotion-dialog/PromotionDialog.js";
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.7/+esm";
 
     // Custom Extension to render specific markers on top of pieces
@@ -526,7 +527,7 @@
         pieces: { file: "pieces/standard.svg" },
         borderType: BORDER_TYPE.none
       },
-      extensions: [{ class: Arrows }, { class: Markers }, { class: ForegroundMarkers }]
+      extensions: [{ class: Arrows }, { class: Markers }, { class: PromotionDialog }, { class: ForegroundMarkers }]
     });
 
     board.enableMoveInput((event) => {
@@ -553,6 +554,27 @@
             case "validateMoveInput":
                 try {
                     const temp = new Chess(chess.fen());
+                    // Check if move is legal (ignoring promotion for now to check basic validity)
+                    // We need to check if promotion is needed
+                    const piece = temp.get(event.squareFrom);
+                    const isPawn = piece && piece.type === 'p';
+                    const targetRank = event.squareTo[1];
+                    const isPromo = isPawn && (targetRank === '1' || targetRank === '8');
+                    
+                    if (isPromo) {
+                        // Check if move is valid with 'q' promotion (just to validate geometry)
+                        const m = temp.move({ from: event.squareFrom, to: event.squareTo, promotion: 'q' });
+                        if (m) {
+                            // Show dialog
+                            // We return true to allow the piece to snap to the square, 
+                            // then we'll handle the actual logic in moveInputFinished?
+                            // No, cm-chessboard PromotionDialog usually works by returning true then callback?
+                            // Actually, standard pattern is: return true, then use showPromotionDialog.
+                            return true; 
+                        }
+                        return false;
+                    }
+                    
                     const m = temp.move({ from: event.squareFrom, to: event.squareTo, promotion: 'q' });
                     return !!m;
                 } catch (e) { return false; }
@@ -560,8 +582,34 @@
             case "moveInputFinished":
                 // Defer clearing to ensure it happens after any internal event handling
                 setTimeout(() => selectSquare(null), 10);
+                
+                // Check for promotion
+                const temp = new Chess(chess.fen());
+                const piece = temp.get(event.squareFrom);
+                const isPawn = piece && piece.type === 'p';
+                const targetRank = event.squareTo[1];
+                const isPromo = isPawn && (targetRank === '1' || targetRank === '8');
+
                 if (event.legalMove) {
-                    handleUserMove(event.squareFrom, event.squareTo);
+                    if (isPromo) {
+                        // Show dialog
+                        const side = piece.color === 'w' ? COLOR.white : COLOR.black;
+                        board.showPromotionDialog(event.squareTo, side, (result) => {
+                            if (result && result.piece) {
+                                // Result piece name e.g. "wq", "wr", "bq" -> char 'q', 'r'
+                                const promoChar = result.piece[1].toLowerCase();
+                                // Execute move with promotion
+                                board.setPosition(chess.fen()); // Revert visual state first? No, dialog handles it.
+                                // Actually, if we just let it sit, we need to apply move to chess.js
+                                handleUserMove(event.squareFrom, event.squareTo, promoChar);
+                            } else {
+                                // Cancelled
+                                board.setPosition(chess.fen(), true);
+                            }
+                        });
+                    } else {
+                        handleUserMove(event.squareFrom, event.squareTo);
+                    }
                 }
                 return true;
         }
@@ -796,7 +844,7 @@
         }
     }
 
-    async function handleUserMove(from, to) {
+    async function handleUserMove(from, to, promotion = 'q') {
         clearArrows();
         // Double check: clear any selection immediately
         selectSquare(null);
@@ -804,7 +852,7 @@
         if (!gameActive) return;
 
         // Move is valid (already checked by cm-chessboard)
-        chess.move({ from, to, promotion: 'q' });
+        chess.move({ from, to, promotion });
         
         // Analysis Mode / Sandbox Bypass
         if (godMode || analysisMode) {
@@ -906,8 +954,9 @@
                 const uci = bestMove.uci;
                 const fromC = uci.slice(0, 2);
                 const toC = uci.slice(2, 4);
+                const promoC = uci.length > 4 ? uci[4] : undefined; // e.g. "a7a8q" -> 'q'
                 
-                chess.move({ from: fromC, to: toC, promotion: 'q' });
+                chess.move({ from: fromC, to: toC, promotion: promoC || 'q' });
                 await board.setPosition(chess.fen(), true);
                 
                 if (chess.isGameOver()) {
