@@ -120,6 +120,18 @@ def filter_tb_kbp_vs_kb(board: chess.Board, tb: Mapping[str, Any]) -> bool:
 
     # B. Draw: white king at/above pawn rank; black king not in front of pawn.
     if wdl == 0:
+        # Drop ~50% of draws before deeper checks.
+        if hasattr(board, "zobrist_hash"):
+            key = board.zobrist_hash()
+        elif hasattr(board, "transposition_key"):
+            key = board.transposition_key()
+        elif hasattr(board, "_transposition_key"):
+            key = board._transposition_key
+        else:
+            key = hash(board)
+        if key & 1 == 0:
+            return False
+
         wp = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
         wk = board.king(chess.WHITE)
         bk = board.king(chess.BLACK)

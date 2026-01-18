@@ -286,7 +286,13 @@
 
     /* Analysis Mode Markers (Flashy) */
     .marker-god-win { fill: #00ff00; opacity: 0.6; pointer-events: none; }
-    .marker-god-win-suboptimal { fill: #a0ffa0; opacity: 0.6; pointer-events: none; }
+    .marker-god-win-best { 
+        fill: #ffffff; 
+        stroke: rgba(0,0,0,0.3); 
+        stroke-width: 1px;
+        opacity: 0.9; 
+        pointer-events: none; 
+    }
     .marker-god-draw { fill: #FF8C00; opacity: 0.6; pointer-events: none; }
     .marker-god-loss { fill: #ff0000; opacity: 0.6; pointer-events: none; }
 
@@ -311,7 +317,7 @@
     /* Link lines to custom markers defined in HTML */
     /* Target the group and all children to force stroke */
     .arrow-win, .arrow-win * { 
-        stroke: var(--color-win) !important; 
+        stroke: #1F6F4A !important; 
         stroke-width: 4px !important;
         fill: none !important;
     }
@@ -319,13 +325,13 @@
         marker-end: url(#arrowHeadWin) !important;
     }
     
-    .arrow-win-suboptimal, .arrow-win-suboptimal * { 
-        stroke: #4ade80 !important; 
+    .arrow-win-best, .arrow-win-best * { 
+        stroke: #ffffff !important; 
         stroke-width: 4px !important;
         fill: none !important;
     }
-    .arrow-win-suboptimal line, .arrow-win-suboptimal path {
-        marker-end: url(#arrowHeadWinSub) !important;
+    .arrow-win-best line, .arrow-win-best path {
+        marker-end: url(#arrowHeadWinBest) !important;
     }
 
     .arrow-draw, .arrow-draw * {  
@@ -385,8 +391,8 @@
       <marker id="arrowHeadWin" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
         <path d="M 0 0 L 10 5 L 0 10 z" fill="#1F6F4A" />
       </marker>
-      <marker id="arrowHeadWinSub" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="#4ade80" />
+      <marker id="arrowHeadWinBest" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#ffffff" />
       </marker>
       <marker id="arrowHeadDraw" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
         <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-draw)" />
@@ -526,11 +532,12 @@
     const MARKER_DEST = { class: "marker-dest", slice: "markerDot" };
     
     const MARKER_GOD_WIN = { class: "marker-god-win", slice: "markerDot" };
+    const MARKER_GOD_WIN_BEST = { class: "marker-god-win-best", slice: "markerDot" };
     const MARKER_GOD_DRAW = { class: "marker-god-draw", slice: "markerDot" };
     const MARKER_GOD_LOSS = { class: "marker-god-loss", slice: "markerDot" };
     
     const ARROW_WIN = { ...ARROW_TYPE.default, class: "arrow-win" };
-    const ARROW_WIN_SUBOPTIMAL = { ...ARROW_TYPE.default, class: "arrow-win-suboptimal" };
+    const ARROW_WIN_BEST = { ...ARROW_TYPE.default, class: "arrow-win-best" };
     const ARROW_DRAW = { ...ARROW_TYPE.default, class: "arrow-draw" };
     const ARROW_LOSS = { ...ARROW_TYPE.default, class: "arrow-loss" };
 
@@ -762,6 +769,7 @@
         board.removeMarkers(MARKER_DEST);
         board.removeMarkers(MARKER_SELECTED); // Cleanup old
         board.removeMarkers(MARKER_GOD_WIN);
+        board.removeMarkers(MARKER_GOD_WIN_BEST);
         board.removeMarkers(MARKER_GOD_DRAW);
         board.removeMarkers(MARKER_GOD_LOSS);
         
@@ -775,28 +783,46 @@
                 // Filter moves starting from selectedSquare
                 const moves = currentTbData.moves.filter(m => m.uci.startsWith(selectedSquare));
                 
+                // Find best DTM among these winning moves
+                let bestDtmForSquare = Infinity;
+                const winningMoves = moves.filter(m => categoryToWdl(m.category) === -2);
+                winningMoves.forEach(m => {
+                    if (m.dtm !== undefined && m.dtm !== null) {
+                        const dist = Math.abs(m.dtm);
+                        if (dist < bestDtmForSquare) bestDtmForSquare = dist;
+                    }
+                });
+
                 // Aggregate by destination to handle promotions (pick best outcome)
+                // Maps dest -> {wdl, dtm}
                 const destMap = new Map();
                 
                 moves.forEach(m => {
                     const dest = m.uci.slice(2, 4);
                     const wdl = categoryToWdl(m.category); // 2, 0, -2
+                    const dtm = m.dtm !== undefined && m.dtm !== null ? Math.abs(m.dtm) : Infinity;
                     
                     if (!destMap.has(dest)) {
-                        destMap.set(dest, wdl);
+                        destMap.set(dest, {wdl, dtm});
                     } else {
-                        const currentBest = destMap.get(dest);
-                        // We want the MIN value (Loss for opponent = -2 is best for us)
-                        if (wdl < currentBest) {
-                            destMap.set(dest, wdl);
+                        const current = destMap.get(dest);
+                        // Pick best WDL first
+                        if (wdl < current.wdl) {
+                            destMap.set(dest, {wdl, dtm});
+                        } else if (wdl === current.wdl && dtm < current.dtm) {
+                            // If same WDL, pick best DTM
+                            destMap.set(dest, {wdl, dtm});
                         }
                     }
                 });
                 
-                destMap.forEach((wdl, dest) => {
+                destMap.forEach((data, dest) => {
                     let marker = MARKER_GOD_DRAW;
-                    if (wdl === -2) marker = MARKER_GOD_WIN;   // Opponent Loses -> I Win -> Green
-                    else if (wdl === 2) marker = MARKER_GOD_LOSS; // Opponent Wins -> I Lose -> Red
+                    if (data.wdl === -2) {
+                        // Check if this destination achieves the best DTM for the piece
+                        marker = (data.dtm <= bestDtmForSquare) ? MARKER_GOD_WIN_BEST : MARKER_GOD_WIN;
+                    }
+                    else if (data.wdl === 2) marker = MARKER_GOD_LOSS; // I Lose -> Red
                     
                     board.addMarker(marker, dest);
                 });
@@ -1551,7 +1577,8 @@
                 if (m.dtm !== undefined && m.dtm !== null) {
                     if (Math.abs(m.dtm) > bestDtm) isBest = false;
                 }
-                arrowType = isBest ? ARROW_WIN : ARROW_WIN_SUBOPTIMAL;
+                // Best move -> White, Suboptimal -> Green
+                arrowType = isBest ? ARROW_WIN_BEST : ARROW_WIN;
             }
             else if (moveWdl === 0) arrowType = ARROW_DRAW;
             else if (moveWdl === -2) arrowType = ARROW_LOSS;
