@@ -7,22 +7,22 @@ from typing import Any, Mapping
 
 import chess
 
-from filter_positions.helpers import mask_files, mask_ranks
-from filter_positions.k_vs_kp import filter_notb_k_vs_kp, filter_tb_k_vs_kp
-from filter_positions.kbp_vs_kb import (
+from helpers import mask_files, mask_ranks
+from k_vs_kp import filter_notb_k_vs_kp, filter_tb_k_vs_kp
+from kbp_vs_kb import (
     filter_notb_kbp_vs_kb,
     filter_tb_kbp_vs_kb,
     gen_hints_kbp_vs_kb,
 )
-from filter_positions.kp_vs_k import filter_notb_kp_vs_k, filter_tb_kp_vs_k
-from filter_positions.kp_vs_kr import filter_notb_kp_vs_kr, filter_tb_kp_vs_kr
-from filter_positions.kr_vs_kp import filter_notb_kr_vs_kp, filter_tb_kr_vs_kp
-from filter_positions.kr_vs_krp import (
+from kp_vs_k import filter_notb_kp_vs_k, filter_tb_kp_vs_k
+from kp_vs_kr import filter_notb_kp_vs_kr, filter_tb_kp_vs_kr
+from kr_vs_kp import filter_notb_kr_vs_kp, filter_tb_kr_vs_kp
+from kr_vs_krp import (
     filter_notb_kr_vs_krp,
     filter_tb_kr_vs_krp,
     gen_hints_kr_vs_krp,
 )
-from filter_positions.krp_vs_kr import (
+from krp_vs_kr import (
     filter_notb_krp_vs_kr,
     filter_tb_krp_vs_kr,
     gen_hints_krp_vs_kr,

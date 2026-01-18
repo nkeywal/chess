@@ -70,10 +70,6 @@ def downsample_file(path: Path, max_bytes: int, target_bytes: int, rng: random.R
         return
 
     full_path = path.with_name(f"{path.stem}.full.txt")
-    if full_path.exists():
-        print(f"skip: {path} (full file already exists)")
-        return
-
     os.replace(path, full_path)
 
     # Sample indices, then read in sorted order for fewer seeks.
