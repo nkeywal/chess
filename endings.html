@@ -247,7 +247,7 @@
     }
 
     .marker-source {
-        fill: rgba(20, 85, 30, 0.5); /* Greenish background */
+        fill: rgba(20, 85, 30, 0.5) !important; /* Lichess-style greenish background - increased opacity */
         stroke: none;
         pointer-events: none;
     }
@@ -427,23 +427,39 @@
     class ForegroundMarkers extends Markers {
         constructor(chessboard, props) {
             super(chessboard, props);
-            // Move this extension's group to the end of the SVG (after pieces)
-            // this.markerGroup is defined in the parent Markers class
-            if (this.markerGroup && chessboard.view.svg) {
-                chessboard.view.svg.appendChild(this.markerGroup);
+            
+            // Use MutationObserver to ensure marker group stays on top (last child)
+            // This handles cases where cm-chessboard redraws pieces (appending them)
+            this.observer = new MutationObserver(() => this.moveToTop());
+            
+            if (chessboard.view.svg) {
+                this.observer.observe(chessboard.view.svg, { childList: true });
+                this.moveToTop();
+            }
+        }
+
+        moveToTop() {
+            const svg = this.chessboard.view.svg;
+            // Check if markerGroup exists and is NOT already the last child
+            if (this.markerGroup && svg && svg.lastElementChild !== this.markerGroup) {
+                // Temporarily disconnect observer to avoid infinite loop (though check above should prevent it)
+                // Actually, appendChild triggers observer. 
+                // But the check `svg.lastElementChild !== this.markerGroup` prevents re-appending if already top.
+                svg.appendChild(this.markerGroup);
             }
         }
 
         addMarker(type, square) {
-            // Only handle destination dots and analysis mode markers
-            if (type && (type.class === "marker-dest" || type.class.startsWith("marker-god"))) {
+            // Handle dest/god markers AND source marker
+            if (type && (type.class === "marker-dest" || type.class.startsWith("marker-god") || type.class === "marker-source")) {
                 super.addMarker(type, square);
+                // Trigger check immediately just in case
+                this.moveToTop();
             }
         }
 
         removeMarkers(type, square) {
-            // Only handle destination dots and analysis mode markers
-            if (!type || (type.class === "marker-dest" || type.class.startsWith("marker-god"))) {
+            if (!type || (type.class === "marker-dest" || type.class.startsWith("marker-god") || type.class === "marker-source")) {
                 super.removeMarkers(type, square);
             }
         }
@@ -573,14 +589,16 @@
                  gameActive = true; // Ensure movement is allowed
                  analysisMode = false;
                  streakInvalidated = true;
-                 setStatus(null, "Analysis Mode Active.");
+                 const turnStr = chess.turn() === 'w' ? "White" : "Black";
+                 setStatus(null, `Analysis Mode On: ${turnStr} to move.`);
                  setGuessEnabled(false);
                  el.guessControls.classList.add("hidden");
             } else {
                  // Deactivated: Still allow movement (Sandbox mode)
                  gameActive = true; 
                  analysisMode = true;
-                 setStatus(null, "Analysis Mode (Sandbox).");
+                 const turnStr = chess.turn() === 'w' ? "White" : "Black";
+                 setStatus(null, `Analysis Mode Off: ${turnStr} to move.`);
             }
         });
     }
@@ -609,7 +627,11 @@
             gameActive = true; // Reactivate game
             isUserTurn = true;
             
-            if (!el.btnWin.classList.contains("hidden")) {
+            if (godMode || analysisMode) {
+                const turnStr = chess.turn() === 'w' ? "White" : "Black";
+                if (godMode) setStatus(null, `Analysis Mode On: ${turnStr} to move.`);
+                else setStatus(null, `Analysis Mode Off: ${turnStr} to move.`);
+            } else if (!el.btnWin.classList.contains("hidden")) {
                 setStatus(null, "Guess result or Play a move.");
             } else {
                 setStatus(null, "");
@@ -670,8 +692,11 @@
                 });
                 
             } else {
-                // Standard Mode (Analysis Mode OFF): 'Pure Test Mode' - No pastilles/aids.
-                // Nothing to add here as per spec "aucun overlay / aucune pastille"
+                // Standard Mode: Show valid destinations (green dots)
+                const moves = chess.moves({ square: selectedSquare, verbose: true });
+                moves.forEach(m => {
+                    board.addMarker(MARKER_DEST, m.to);
+                });
             }
         }
     }
@@ -794,9 +819,9 @@
                 const turnStr = chess.turn() === 'w' ? "White" : "Black";
                 
                 if (godMode) {
-                    setStatus(null, `Analysis Mode: ${turnStr} to move.`);
+                    setStatus(null, `Analysis Mode On: ${turnStr} to move.`);
                 } else {
-                    setStatus(null, `Analysis: ${turnStr} to move.`);
+                    setStatus(null, `Analysis Mode Off: ${turnStr} to move.`);
                 }
                 
                 if (chess.isGameOver()) {

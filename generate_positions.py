@@ -28,6 +28,16 @@ LETTER_TO_PIECE_TYPE = {
     "P": chess.PAWN,
 }
 
+ALL_SQUARES_MASK = (1 << 64) - 1
+
+# Pawns cannot be on rank 1 or rank 8.
+# square index: a1=0 .. h8=63, rank = sq>>3 in [0..7]
+PAWN_SQUARES_MASK = 0
+for sq in range(64):
+    r = sq >> 3
+    if r != 0 and r != 7:
+        PAWN_SQUARES_MASK |= (1 << sq)
+
 
 @dataclass(frozen=True)
 class Material:
@@ -95,72 +105,6 @@ def find_gaviota_dirs(root: Path) -> List[Path]:
     return sorted(dirs, key=sort_key)
 
 
-def square_is_pawn_legal(square: int) -> bool:
-    # No pawn on rank 1 or rank 8. python-chess ranks are 0..7.
-    r = chess.square_rank(square)
-    return r != 0 and r != 7
-
-
-def kings_not_adjacent(wk: int, bk: int) -> bool:
-    wf = chess.square_file(wk)
-    wr = chess.square_rank(wk)
-    bf = chess.square_file(bk)
-    br = chess.square_rank(bk)
-    return max(abs(wf - bf), abs(wr - br)) > 1
-
-
-def build_board(placements: Dict[Tuple[bool, int], Sequence[int]]) -> chess.Board:
-    """
-    Create a python-chess Board from placements.
-
-    placements key: (color_is_white, piece_type) -> sorted squares
-    """
-    board = chess.Board(None)  # empty board
-    board.clear_stack()
-    board.turn = chess.WHITE
-    board.castling_rights = 0
-    board.ep_square = None
-    board.halfmove_clock = 0
-    board.fullmove_number = 1
-
-    for (is_white, piece_type), squares in placements.items():
-        color = chess.WHITE if is_white else chess.BLACK
-        for sq in squares:
-            board.set_piece_at(sq, chess.Piece(piece_type, color))
-
-    return board
-
-
-def is_position_valid(board: chess.Board) -> bool:
-    """
-    Position validity as per spec:
-      - White to move
-      - No pawn on rank 1 or rank 8
-      - Kings exist, not adjacent
-      - Black king NOT in check (since White to move, the side not to move cannot be in check)
-      - White king may be in check
-    """
-    if board.turn != chess.WHITE:
-        return False
-
-    wk = board.king(chess.WHITE)
-    bk = board.king(chess.BLACK)
-    if wk is None or bk is None:
-        return False
-
-    if not kings_not_adjacent(wk, bk):
-        return False
-
-    for sq, piece in board.piece_map().items():
-        if piece.piece_type == chess.PAWN and not square_is_pawn_legal(sq):
-            return False
-
-    if board.is_attacked_by(chess.WHITE, bk):
-        return False
-
-    return True
-
-
 def groups_for_generation(material: Material) -> List[Tuple[bool, int, int]]:
     """
     Returns piece-groups in canonical KQRBNP order, for White then Black.
@@ -185,50 +129,329 @@ def groups_for_generation(material: Material) -> List[Tuple[bool, int, int]]:
     return groups
 
 
-def iter_group_squares(available: Sequence[int], piece_type: int, count: int) -> Iterable[Tuple[int, ...]]:
+# ----------------------------
+# Fast generation (no Board)
+# ----------------------------
+
+def _iter_bits(mask: int) -> Iterable[int]:
+    """Yield square indices for each 1 bit in mask (ascending)."""
+    while mask:
+        lsb = mask & -mask
+        sq = lsb.bit_length() - 1
+        yield sq
+        mask ^= lsb
+
+
+def _iter_k_combos(mask: int, k: int) -> Iterable[Tuple[int, ...]]:
     """
-    Yield combinations of squares for a group, respecting pawn constraints.
+    Iterate combinations of k squares from a bitmask.
+    Optimized for k in {1,2,3}. Falls back to a slower path for larger k (should not happen for total<=5).
     """
+    if k == 1:
+        for a in _iter_bits(mask):
+            yield (a,)
+        return
+
+    if k == 2:
+        m1 = mask
+        while m1:
+            l1 = m1 & -m1
+            a = l1.bit_length() - 1
+            m1 ^= l1
+
+            m2 = mask & ~((1 << (a + 1)) - 1)  # keep bits > a
+            while m2:
+                l2 = m2 & -m2
+                b = l2.bit_length() - 1
+                m2 ^= l2
+                yield (a, b)
+        return
+
+    if k == 3:
+        m1 = mask
+        while m1:
+            l1 = m1 & -m1
+            a = l1.bit_length() - 1
+            m1 ^= l1
+
+            m2 = mask & ~((1 << (a + 1)) - 1)  # bits > a
+            while m2:
+                l2 = m2 & -m2
+                b = l2.bit_length() - 1
+                m2 ^= l2
+
+                m3 = m2 & ~((1 << (b + 1)) - 1)  # bits > b, and already > a
+                while m3:
+                    l3 = m3 & -m3
+                    c = l3.bit_length() - 1
+                    m3 ^= l3
+                    yield (a, b, c)
+        return
+
+    # Fallback (should not be used for total pieces <= 5).
     import itertools
-
-    if piece_type == chess.PAWN:
-        candidates = [sq for sq in available if square_is_pawn_legal(sq)]
-    else:
-        candidates = list(available)
-
-    return itertools.combinations(candidates, count)
+    squares = list(_iter_bits(mask))
+    for combo in itertools.combinations(squares, k):
+        yield combo
 
 
-def generate_placements(groups: List[Tuple[bool, int, int]]) -> Iterable[Dict[Tuple[bool, int], Sequence[int]]]:
+def _build_king_adjacency_masks() -> List[int]:
     """
-    Exhaustively generate all placements (unique w.r.t. identical pieces).
-
-    We place groups sequentially; each group chooses a combination of squares
-    from remaining squares. This avoids duplicates for identical pieces.
-
-    Output is a mapping:
-      (is_white, piece_type) -> sorted tuple of squares
+    For each square s, return a bitmask of squares within Chebyshev distance <= 1 (including s).
+    Used to forbid adjacent kings.
     """
-    all_squares = tuple(range(64))
+    adj = [0] * 64
+    for s in range(64):
+        f = s & 7
+        r = s >> 3
+        m = 0
+        for df in (-1, 0, 1):
+            ff = f + df
+            if ff < 0 or ff > 7:
+                continue
+            for dr in (-1, 0, 1):
+                rr = r + dr
+                if rr < 0 or rr > 7:
+                    continue
+                sq = (rr << 3) | ff
+                m |= (1 << sq)
+        adj[s] = m
+    return adj
 
-    def rec(i: int, remaining: Tuple[int, ...], acc: Dict[Tuple[bool, int], Sequence[int]]):
-        if i == len(groups):
-            yield acc
+
+KING_ADJ_MASK = _build_king_adjacency_masks()
+
+
+def _rook_or_bishop_line_attacks(from_sq: int, to_sq: int, occupied: int, step: int) -> bool:
+    """
+    Return True if a sliding piece on from_sq attacks to_sq along 'step' (±1, ±7, ±8, ±9),
+    given the full occupied bitboard.
+    Assumes from_sq and to_sq are aligned for that step direction.
+    """
+    sq = from_sq + step
+    while sq != to_sq:
+        if (occupied >> sq) & 1:
+            return False
+        sq += step
+    return True
+
+
+def _white_attacks_square(bk_sq: int, white_pieces: List[Tuple[int, int]], occupied: int) -> bool:
+    """
+    Determine if bk_sq is attacked by any white piece in white_pieces.
+    white_pieces: list of (piece_type, square) excluding the white king.
+    occupied: bitboard of all pieces (both colors), BK may be included (doesn't matter for this logic).
+    """
+    bk_f = bk_sq & 7
+    bk_r = bk_sq >> 3
+
+    for pt, sq in white_pieces:
+        sf = sq & 7
+        sr = sq >> 3
+        df = bk_f - sf
+        dr = bk_r - sr
+
+        if pt == chess.PAWN:
+            # White pawn attacks (sr+1, sf±1) -> +7/+9 in square indexing
+            # Equivalent coordinate check:
+            if dr == 1 and (df == -1 or df == 1):
+                return True
+
+        elif pt == chess.KNIGHT:
+            adf = df if df >= 0 else -df
+            adr = dr if dr >= 0 else -dr
+            if (adf == 1 and adr == 2) or (adf == 2 and adr == 1):
+                return True
+
+        elif pt == chess.BISHOP:
+            if df == dr and df != 0:
+                step = 9 if df > 0 else -9
+                if _rook_or_bishop_line_attacks(sq, bk_sq, occupied, step):
+                    return True
+            elif df == -dr and df != 0:
+                step = 7 if df < 0 else -7  # careful with signs in square indexing
+                # Let's derive properly:
+                # If df = bk_f - sf, dr = bk_r - sr.
+                # Moving NE is +9 (df>0, dr>0, df==dr)
+                # Moving NW is +7 (df<0, dr>0, -df==dr)
+                # Moving SE is -7 (df>0, dr<0, df==-dr)
+                # Moving SW is -9 (df<0, dr<0, df==dr)
+                # Here df == -dr.
+                if df > 0 and dr < 0:
+                    step = -7
+                elif df < 0 and dr > 0:
+                    step = 7
+                else:
+                    # Should not happen if df == -dr, but keep safe.
+                    step = 7 if dr > 0 else -7
+                if _rook_or_bishop_line_attacks(sq, bk_sq, occupied, step):
+                    return True
+
+        elif pt == chess.ROOK:
+            if df == 0 and dr != 0:
+                step = 8 if dr > 0 else -8
+                if _rook_or_bishop_line_attacks(sq, bk_sq, occupied, step):
+                    return True
+            elif dr == 0 and df != 0:
+                step = 1 if df > 0 else -1
+                if _rook_or_bishop_line_attacks(sq, bk_sq, occupied, step):
+                    return True
+
+        elif pt == chess.QUEEN:
+            # Rook-like
+            if df == 0 and dr != 0:
+                step = 8 if dr > 0 else -8
+                if _rook_or_bishop_line_attacks(sq, bk_sq, occupied, step):
+                    return True
+            elif dr == 0 and df != 0:
+                step = 1 if df > 0 else -1
+                if _rook_or_bishop_line_attacks(sq, bk_sq, occupied, step):
+                    return True
+            # Bishop-like
+            elif df == dr and df != 0:
+                step = 9 if df > 0 else -9
+                if _rook_or_bishop_line_attacks(sq, bk_sq, occupied, step):
+                    return True
+            elif df == -dr and df != 0:
+                if df > 0 and dr < 0:
+                    step = -7
+                elif df < 0 and dr > 0:
+                    step = 7
+                else:
+                    step = 7 if dr > 0 else -7
+                if _rook_or_bishop_line_attacks(sq, bk_sq, occupied, step):
+                    return True
+
+        else:
+            # White king is excluded from white_pieces (and kings adjacency is enforced elsewhere).
+            pass
+
+    return False
+
+
+def generate_valid_square_placements(material: Material) -> Iterable[Tuple[int, int, List[Tuple[bool, int, Tuple[int, ...]]]]]:
+    """
+    Generate ONLY "valid positions" per spec, without building a Board:
+      - White to move (handled later)
+      - No pawn on rank 1/8 (enforced by pawn masks)
+      - Kings not adjacent (enforced by BK choice using KING_ADJ_MASK)
+      - Black king not in check by White (checked via _white_attacks_square)
+
+    Yields:
+      (wk_sq, bk_sq, pieces)
+    where pieces is a list of (is_white, piece_type, squares_tuple) for all NON-KING groups
+    in the same canonical ordering as groups_for_generation(), but excluding kings.
+    """
+    groups = groups_for_generation(material)
+
+    # Split out non-king groups; keep canonical ordering.
+    nonking_groups: List[Tuple[bool, int, int, int]] = []  # (is_white, pt, count, allowed_mask)
+    for is_white, pt, count in groups:
+        if pt == chess.KING:
+            continue
+        allowed = PAWN_SQUARES_MASK if pt == chess.PAWN else ALL_SQUARES_MASK
+        nonking_groups.append((is_white, pt, count, allowed))
+
+    # Pre-allocate chosen squares per non-king group (to avoid per-node dict allocations).
+    chosen: List[Tuple[int, ...]] = [()] * len(nonking_groups)
+
+    # Collect which chosen entries are white pieces for attack checking (built at leaf cheaply).
+    # We will rebuild a compact list at leaf (<=3 pieces typically), so no need to maintain incrementally.
+
+    def rec(i: int, used: int) -> Iterable[Tuple[int, int, List[Tuple[bool, int, Tuple[int, ...]]]]]:
+        if i == len(nonking_groups):
+            # BK is chosen last to reduce recursion overhead.
+            used_no_bk = used
+            # BK must not share squares and must not be adjacent to WK.
+            bk_mask = ALL_SQUARES_MASK & ~used_no_bk & ~KING_ADJ_MASK[wk_sq]
+
+            # Build compact list of white pieces (excluding WK) once for all BK tries at this leaf.
+            white_pieces: List[Tuple[int, int]] = []
+            # occupied without BK is used_no_bk; adding BK does not change blockers between attacker and BK squares.
+            # However, we pass occupied including BK for simplicity.
+            for (is_white2, pt2, _count2, _allowed2), sqs in zip(nonking_groups, chosen):
+                if is_white2:
+                    for s2 in sqs:
+                        white_pieces.append((pt2, s2))
+
+            for bk_sq in _iter_bits(bk_mask):
+                occupied = used_no_bk | (1 << bk_sq)
+                if _white_attacks_square(bk_sq, white_pieces, occupied):
+                    continue
+
+                pieces_out: List[Tuple[bool, int, Tuple[int, ...]]] = []
+                for (is_white2, pt2, _count2, _allowed2), sqs in zip(nonking_groups, chosen):
+                    pieces_out.append((is_white2, pt2, sqs))
+
+                yield (wk_sq, bk_sq, pieces_out)
+
             return
 
-        is_white, piece_type, count = groups[i]
+        is_white, pt, count, allowed = nonking_groups[i]
+        avail = allowed & ~used
 
-        for combo in iter_group_squares(remaining, piece_type, count):
-            chosen = set(combo)
-            new_remaining = tuple(sq for sq in remaining if sq not in chosen)
+        for combo in _iter_k_combos(avail, count):
+            u2 = used
+            for s in combo:
+                u2 |= (1 << s)
+            chosen[i] = combo
+            yield from rec(i + 1, u2)
 
-            new_acc = dict(acc)
-            new_acc[(is_white, piece_type)] = tuple(sorted(combo))
+    # WK outer loop (simple range is fastest here).
+    for wk_sq in range(64):
+        used0 = 1 << wk_sq
+        yield from rec(0, used0)
 
-            yield from rec(i + 1, new_remaining, new_acc)
 
-    yield from rec(0, all_squares, {})
+# ----------------------------
+# Board construction (reused)
+# ----------------------------
 
+def _new_empty_board() -> chess.Board:
+    b = chess.Board(None)  # empty board
+    b.turn = chess.WHITE
+    b.castling_rights = 0
+    b.ep_square = None
+    b.halfmove_clock = 0
+    b.fullmove_number = 1
+    return b
+
+
+_HAS_CLEAR_BOARD = hasattr(_new_empty_board(), "clear_board")
+
+
+def _fill_board_inplace(
+    board: chess.Board,
+    wk_sq: int,
+    bk_sq: int,
+    pieces: List[Tuple[bool, int, Tuple[int, ...]]],
+    piece_cache: Dict[Tuple[bool, int], chess.Piece],
+) -> chess.Board:
+    """
+    Fill an existing empty board with pieces. Requires python-chess Board.clear_board().
+    Filters are assumed not to mutate the board (push/pop), otherwise reuse is unsafe.
+    """
+    board.clear_board()
+    board.turn = chess.WHITE
+    board.castling_rights = 0
+    board.ep_square = None
+    board.halfmove_clock = 0
+    board.fullmove_number = 1
+
+    board.set_piece_at(wk_sq, piece_cache[(True, chess.KING)])
+    board.set_piece_at(bk_sq, piece_cache[(False, chess.KING)])
+
+    for is_white, pt, sqs in pieces:
+        piece = piece_cache[(is_white, pt)]
+        for s in sqs:
+            board.set_piece_at(s, piece)
+
+    return board
+
+
+# ----------------------------
+# TB probing / encoding (unchanged)
+# ----------------------------
 
 def dtm_stm_to_white(dtm_stm: int, stm_color: bool) -> int:
     """
@@ -396,7 +619,7 @@ def main() -> None:
     out_path = out_dir / material.filename
 
     # Counters.
-    candidates_total = 0
+    candidates_total = 0  # now equals valid_positions, since we generate only valid
     valid_positions = 0
 
     rejected_notb_generic = 0
@@ -407,12 +630,10 @@ def main() -> None:
     rejected_tb_specific = 0
     accepted = 0
 
-    # Accepted-position stats (root outcome, White POV).
     accepted_win = 0
     accepted_draw = 0
     accepted_loss = 0
 
-    # DTM stats split by winner (positive values only).
     dtm_white_count = 0
     dtm_white_sum = 0
     dtm_white_min: Optional[int] = None
@@ -426,6 +647,7 @@ def main() -> None:
     tb_opened = False
 
     t0 = time.perf_counter()
+    next_log_time = t0 + 60.0
 
     def log_progress() -> None:
         elapsed = time.perf_counter() - t0
@@ -448,27 +670,56 @@ def main() -> None:
             f" | tb_opened={tb_opened}"
         )
 
+    # Piece cache avoids re-allocating chess.Piece objects.
+    piece_cache: Dict[Tuple[bool, int], chess.Piece] = {
+        (True, chess.KING): chess.Piece(chess.KING, chess.WHITE),
+        (False, chess.KING): chess.Piece(chess.KING, chess.BLACK),
+        (True, chess.QUEEN): chess.Piece(chess.QUEEN, chess.WHITE),
+        (False, chess.QUEEN): chess.Piece(chess.QUEEN, chess.BLACK),
+        (True, chess.ROOK): chess.Piece(chess.ROOK, chess.WHITE),
+        (False, chess.ROOK): chess.Piece(chess.ROOK, chess.BLACK),
+        (True, chess.BISHOP): chess.Piece(chess.BISHOP, chess.WHITE),
+        (False, chess.BISHOP): chess.Piece(chess.BISHOP, chess.BLACK),
+        (True, chess.KNIGHT): chess.Piece(chess.KNIGHT, chess.WHITE),
+        (False, chess.KNIGHT): chess.Piece(chess.KNIGHT, chess.BLACK),
+        (True, chess.PAWN): chess.Piece(chess.PAWN, chess.WHITE),
+        (False, chess.PAWN): chess.Piece(chess.PAWN, chess.BLACK),
+    }
+
+    # Board reuse if supported (significant speed win).
+    board_reuse = _HAS_CLEAR_BOARD
+    board = _new_empty_board() if board_reuse else None
+
     with out_path.open("w", encoding="ascii", newline="") as f_out:
         tablebase = None  # lazy init
 
-        groups = groups_for_generation(material)
-
-        for placement in generate_placements(groups):
-            candidates_total += 1
-
-            board = build_board(placement)
-
-            if not is_position_valid(board):
-                continue
-
+        for wk_sq, bk_sq, pieces in generate_valid_square_placements(material):
             valid_positions += 1
+            candidates_total += 1
+            now = time.perf_counter()
+            if now >= next_log_time:
+                log_progress()
+                next_log_time = now + 60.0
 
-            # Stage A: no-tablebase filters.
-            if not filters.filter_notb_generic(board):
+            # Build a Board only for valid positions.
+            if board_reuse:
+                assert board is not None
+                b = _fill_board_inplace(board, wk_sq, bk_sq, pieces, piece_cache)
+            else:
+                b = _new_empty_board()
+                b.set_piece_at(wk_sq, piece_cache[(True, chess.KING)])
+                b.set_piece_at(bk_sq, piece_cache[(False, chess.KING)])
+                for is_white, pt, sqs in pieces:
+                    piece = piece_cache[(is_white, pt)]
+                    for s in sqs:
+                        b.set_piece_at(s, piece)
+
+            # Stage A: no-tablebase filters (unchanged).
+            if not filters.filter_notb_generic(b):
                 rejected_notb_generic += 1
                 continue
 
-            if filter_notb_specific is not None and not filter_notb_specific(board):
+            if filter_notb_specific is not None and not filter_notb_specific(b):
                 rejected_notb_specific += 1
                 continue
 
@@ -481,25 +732,20 @@ def main() -> None:
                     tablebase.add_directory(str(d))
                 tb_opened = True
 
-            # Probe only DTM for the root position first.
-            wdl_white, dtm_white = probe_dtm_only_white_pov(tablebase, board)
+            wdl_white, dtm_white = probe_dtm_only_white_pov(tablebase, b)
+            tb_info = build_tb_info_with_probe(tablebase, b, wdl_white, dtm_white)
 
-            # Build TB info with on-demand per-move probe (expensive only if needed).
-            tb_info = build_tb_info_with_probe(tablebase, board, wdl_white, dtm_white)
-
-            if not filters.filter_tb_generic(board, tb_info):
+            if not filters.filter_tb_generic(b, tb_info):
                 rejected_tb_generic += 1
                 continue
 
-            if filter_tb_specific is not None and not filter_tb_specific(board, tb_info):
+            if filter_tb_specific is not None and not filter_tb_specific(b, tb_info):
                 rejected_tb_specific += 1
                 continue
 
-            # Accepted -> write record (no separators, no newline).
-            f_out.write(encode_record(material, board))
+            f_out.write(encode_record(material, b))
             accepted += 1
 
-            # Update accepted-position stats (root outcome).
             if wdl_white > 0:
                 accepted_win += 1
             elif wdl_white < 0:
@@ -507,7 +753,6 @@ def main() -> None:
             else:
                 accepted_draw += 1
 
-            # DTM stats split by winner.
             if dtm_white is not None:
                 if wdl_white > 0:
                     v = dtm_white
@@ -525,9 +770,6 @@ def main() -> None:
                         dtm_black_min = v
                     if dtm_black_max is None or v > dtm_black_max:
                         dtm_black_max = v
-
-            if accepted % 100000 == 0:
-                log_progress()
 
         if tablebase is not None:
             tablebase.close()

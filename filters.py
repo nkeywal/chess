@@ -155,15 +155,16 @@ def filter_notb_kbp_vs_kb(board: chess.Board) -> bool:
     """
     KBP (White) vs KB (Black) no-TB filter.
     """
+    
+    if board.is_check():
+        return False    
+    
     wk = board.king(chess.WHITE)
     bk = board.king(chess.BLACK)
+    wp = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
+    wb = next(iter(board.pieces(chess.BISHOP, chess.WHITE)))
+    bb = next(iter(board.pieces(chess.BISHOP, chess.BLACK)))
 
-    try:
-        wp = next(iter(board.pieces(chess.PAWN, chess.WHITE)))
-        wb = next(iter(board.pieces(chess.BISHOP, chess.WHITE)))
-        bb = next(iter(board.pieces(chess.BISHOP, chess.BLACK)))
-    except StopIteration:
-        return False
 
     # Bishops must be on the same color squares.
     if (chess.square_file(wb) + chess.square_rank(wb)) % 2 != (
@@ -176,7 +177,7 @@ def filter_notb_kbp_vs_kb(board: chess.Board) -> bool:
     # White pawn: files b-g, ranks 5/6 (0-based 4/5).
     if pf < 1 or pf > 6:
         return False
-    if pr not in (4, 5):
+    if pr not in (3, 4, 5):
         return False
 
     # Combat zone distances.
@@ -187,18 +188,6 @@ def filter_notb_kbp_vs_kb(board: chess.Board) -> bool:
     if max(abs(bkf - pf), abs(bkr - pr)) > 4:
         return False
 
-    # Stability: no check on the white king, no immediate capture.
-    if board.is_check():
-        return False
-    for mv in board.legal_moves:
-        if board.is_capture(mv):
-            return False
-
-    # Bishops must not be en prise.
-    if board.attackers(chess.BLACK, wb):
-        return False
-    if board.attackers(chess.WHITE, bb):
-        return False
 
     return True
 
