@@ -315,16 +315,15 @@
     /* Analysis Mode Toggle styling */
     #godModeBtn {
         transition: background 0.2s ease, border-color 0.2s ease;
-        background: rgba(255, 92, 92, 0.2) !important; /* OFF state background (Loss button color) */
-        border: 1px solid transparent !important;
-        color: #9aa4b2; /* OFF state color */
+        background: transparent !important;
+        border: none !important;
+        color: var(--color-neutral-icon); /* OFF state color */
         font-size: 1.2rem;
     }
 
     #godModeBtn.active {
-        background: rgba(0, 180, 120, 0.15) !important;
-        border-color: rgba(0, 180, 120, 0.3) !important;
-        color: #00ff00; /* ON state color */
+        background: rgba(80, 160, 255, 0.18) !important;
+        color: var(--color-analysis) !important; /* ON state color */
     }
 
     /* Fix mobile vertical jump by overriding body alignment at the end of cascade */
@@ -645,15 +644,12 @@
                 
                 // Aggregate by destination to handle promotions (pick best outcome)
                 const destMap = new Map();
-                let hasWinningMove = false;
                 
                 moves.forEach(m => {
                     const dest = m.uci.slice(2, 4);
                     const wdl = categoryToWdl(m.category); // 2, 0, -2
                     
-                    // Logic: -2 (Green/Win) > 0 (Orange/Draw) > 2 (Red/Loss)
-                    if (wdl === -2) hasWinningMove = true;
-
+                    // Logic: -2 (Win) > 0 (Draw) > 2 (Loss)
                     if (!destMap.has(dest)) {
                         destMap.set(dest, wdl);
                     } else {
@@ -674,11 +670,8 @@
                 });
                 
             } else {
-                // Standard Mode: Just show valid destinations
-                const moves = chess.moves({ square: selectedSquare, verbose: true });
-                moves.forEach(m => {
-                    board.addMarker(MARKER_DEST, m.to);
-                });
+                // Standard Mode (Analysis Mode OFF): 'Pure Test Mode' - No pastilles/aids.
+                // Nothing to add here as per spec "aucun overlay / aucune pastille"
             }
         }
     }
