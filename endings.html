@@ -23,8 +23,9 @@
       /* Spec Palette */
       --color-analysis: #6FB4FF;
       --color-win: #1F6F4A;
-      --color-draw: #FF8C00;
-      --color-loss: #6E2B36;
+      --color-win-best: #2ecc71;
+      --color-draw: #95a5a6;
+      --color-loss: #e74c3c;
       --color-neutral-icon: rgba(255,255,255,0.55);
 
       --pagePad: 24px;
@@ -213,13 +214,11 @@
       cursor: not-allowed;
     }
 
-    .btn-win { background: rgba(46, 204, 113, 0.2) !important; }
-    .btn-draw { background: rgba(255, 204, 102, 0.2) !important; }
-    .btn-loss { background: rgba(255, 92, 92, 0.2) !important; }
+    .btn-win { background: var(--color-win) !important; opacity: 0.85; }
+    .btn-draw { background: var(--color-draw) !important; opacity: 0.85; }
+    .btn-loss { background: var(--color-loss) !important; opacity: 0.85; }
     
-    .btn-win:hover { background: rgba(46, 204, 113, 0.3) !important; }
-    .btn-draw:hover { background: rgba(255, 204, 102, 0.3) !important; }
-    .btn-loss:hover { background: rgba(255, 92, 92, 0.3) !important; }
+    .btn-win:hover, .btn-draw:hover, .btn-loss:hover { opacity: 1; }
 
     details {
       border: none; /* Removed border */
@@ -284,17 +283,15 @@
         pointer-events: none;
     }
 
-    /* Analysis Mode Markers (Flashy) */
-    .marker-god-win { fill: #00ff00; opacity: 0.6; pointer-events: none; }
-    .marker-god-win-best { 
-        fill: #ffffff; 
-        stroke: rgba(0,0,0,0.3); 
-        stroke-width: 1px;
-        opacity: 0.9; 
-        pointer-events: none; 
-    }
-    .marker-god-draw { fill: #FF8C00; opacity: 0.6; pointer-events: none; }
-    .marker-god-loss { fill: #ff0000; opacity: 0.6; pointer-events: none; }
+            /* Analysis Mode Markers (Flashy) */
+
+            .marker-god-win { fill: var(--color-win); opacity: 0.5; pointer-events: none; }
+
+            .marker-god-win-best { fill: var(--color-win-best); opacity: 0.8; pointer-events: none; }
+
+            .marker-god-draw { fill: var(--color-draw); opacity: 0.6; pointer-events: none; }
+
+            .marker-god-loss { fill: var(--color-loss); opacity: 0.6; pointer-events: none; }
 
     /* Ensure markers are on top of pieces */
     #board svg .marker-dot {
@@ -326,7 +323,7 @@
     }
     
     .arrow-win-best, .arrow-win-best * { 
-        stroke: #ffffff !important; 
+        stroke: var(--color-win-best) !important; 
         stroke-width: 4px !important;
         fill: none !important;
     }
@@ -389,10 +386,10 @@
   <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
     <defs>
       <marker id="arrowHeadWin" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="#1F6F4A" />
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-win)" />
       </marker>
       <marker id="arrowHeadWinBest" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="#ffffff" />
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-win-best)" />
       </marker>
       <marker id="arrowHeadDraw" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
         <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-draw)" />
@@ -524,7 +521,78 @@
             }
         }
         
-        // No override for add/remove needed, they operate on markerGroup
+        addMarker(type, square) {
+            // Handle dest/god markers AND source marker
+            if (type && (type.class === "marker-dest" || type.class.startsWith("marker-god") || type.class === "marker-source")) {
+                super.addMarker(type, square);
+                
+                // Add DTM text if present
+                if (type.dtm !== undefined && this.markerGroup) {
+                    const lastChild = this.markerGroup.lastElementChild;
+                    
+                    if (lastChild && lastChild.tagName === "use") {
+                        const xStr = lastChild.getAttribute("x");
+                        const yStr = lastChild.getAttribute("y");
+                        const wStr = lastChild.getAttribute("width");
+                        const hStr = lastChild.getAttribute("height");
+                        
+                        // console.log("DTM Marker:", type.dtm, "Square:", square, "Attrs:", xStr, yStr, wStr, hStr);
+
+                        const x = parseFloat(xStr || "0");
+                        const y = parseFloat(yStr || "0");
+                        const width = parseFloat(wStr || "0");
+                        const height = parseFloat(hStr || "0");
+                        
+                        if (width > 0) {
+                            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                            text.setAttribute("x", x + width / 2);
+                            text.setAttribute("y", y + height / 2);
+                            text.setAttribute("text-anchor", "middle");
+                            text.setAttribute("dominant-baseline", "central");
+                            text.setAttribute("class", "marker-dtm-text");
+                            text.setAttribute("data-square", square);
+                            text.textContent = type.dtm;
+                            
+                            // Style
+                            text.style.pointerEvents = "none";
+                            text.style.fontSize = (width * 0.35) + "px";
+                            text.style.fontFamily = "sans-serif";
+                            text.style.fontWeight = "bold";
+                            text.style.fill = "#000"; // Black text
+                            // Add white stroke for contrast on colored dots
+                            text.style.stroke = "white";
+                            text.style.strokeWidth = "0.5px";
+                            text.style.paintOrder = "stroke"; 
+                            
+                            this.markerGroup.appendChild(text);
+                        } else {
+                            console.warn("Marker width is 0 or missing, cannot center text.");
+                        }
+                    } else {
+                        console.warn("Last child is not 'use', cannot add DTM.");
+                    }
+                }
+
+                // Trigger check immediately just in case
+                this.syncOverlay();
+            }
+        }
+
+        removeMarkers(type, square) {
+            if (!type || (type.class === "marker-dest" || type.class.startsWith("marker-god") || type.class === "marker-source")) {
+                super.removeMarkers(type, square);
+                
+                // Remove associated text
+                if (this.markerGroup) {
+                    let selector = ".marker-dtm-text";
+                    if (square) {
+                        selector += `[data-square='${square}']`;
+                    }
+                    const texts = this.markerGroup.querySelectorAll(selector);
+                    texts.forEach(t => t.remove());
+                }
+            }
+        }
     }
 
     const MARKER_SELECTED = { class: "marker-selected", slice: "markerSquare" };
@@ -765,13 +833,7 @@
 
     function selectSquare(sq) {
         clearArrows(); // Clear arrows on selection
-        board.removeMarkers(MARKER_SOURCE);
-        board.removeMarkers(MARKER_DEST);
-        board.removeMarkers(MARKER_SELECTED); // Cleanup old
-        board.removeMarkers(MARKER_GOD_WIN);
-        board.removeMarkers(MARKER_GOD_WIN_BEST);
-        board.removeMarkers(MARKER_GOD_DRAW);
-        board.removeMarkers(MARKER_GOD_LOSS);
+        board.removeMarkers(); // Clear all markers (source, dest, god mode, etc.)
         
         selectedSquare = sq;
         if (selectedSquare) {
@@ -817,12 +879,17 @@
                 });
                 
                 destMap.forEach((data, dest) => {
-                    let marker = MARKER_GOD_DRAW;
+                    let markerDef = MARKER_GOD_DRAW;
                     if (data.wdl === -2) {
-                        // Check if this destination achieves the best DTM for the piece
-                        marker = (data.dtm <= bestDtmForSquare) ? MARKER_GOD_WIN_BEST : MARKER_GOD_WIN;
+                        markerDef = (data.dtm <= bestDtmForSquare) ? MARKER_GOD_WIN_BEST : MARKER_GOD_WIN;
                     }
-                    else if (data.wdl === 2) marker = MARKER_GOD_LOSS; // I Lose -> Red
+                    else if (data.wdl === 2) markerDef = MARKER_GOD_LOSS;
+                    
+                    // Clone and inject DTM
+                    const marker = { ...markerDef };
+                    if (data.dtm !== undefined && data.dtm !== Infinity) {
+                        marker.dtm = data.dtm;
+                    }
                     
                     board.addMarker(marker, dest);
                 });
