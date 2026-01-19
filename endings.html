@@ -150,6 +150,7 @@
       height: 100%;
       border-radius: 12px;
       overflow: hidden;
+      position: relative;
     }
 
     .sideCard {
@@ -217,6 +218,8 @@
       cursor: not-allowed;
     }
 
+    .hidden { display: none !important; }
+
     #btnNew {
         font-weight: normal;
         background: #3b82f6 !important;
@@ -232,12 +235,6 @@
     .btn-draw { background: var(--color-draw) !important; color: #e7eefc !important; }
     .btn-loss { background: var(--color-loss) !important; color: #e7eefc !important; }
     .btn-win:hover, .btn-draw:hover, .btn-loss:hover { filter: brightness(1.1); }
-
-    .marker-selected {
-        fill: rgba(255, 255, 255, 0.4);
-        stroke: none;
-        pointer-events: none;
-    }
 
     .marker-source {
         fill: rgba(20, 85, 30, 0.5) !important; /* Lichess-style greenish background */
@@ -258,6 +255,22 @@
     .marker-god-loss { fill: var(--color-loss); opacity: 0.6; pointer-events: none; }
 
     /* Ensure markers are on top of pieces */
+    /* Marker overlay (above pieces) */
+    #markerOverlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 60;
+      overflow: visible;
+    }
+
+    #markerOverlay .marker-dtm-text {
+      pointer-events: none;
+      user-select: none;
+    }
+
     #board svg .marker-dot {
         z-index: 10;
         pointer-events: none;
@@ -432,121 +445,175 @@
 
     import { Chessboard, COLOR, BORDER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/Chessboard.js";
     import { Arrows, ARROW_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/extensions/arrows/Arrows.js";
-    import { Markers, MARKER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/extensions/markers/Markers.js";
     import { PromotionDialog } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/extensions/promotion-dialog/PromotionDialog.js";
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.7/+esm";
 
-    // Custom Extension to render ALL markers on top of pieces
-    class CustomMarkers extends Markers {
-        constructor(chessboard, props) {
-            super(chessboard, props);
-            this.dtmBySquare = new Map();
-            
-            // Create a new SVG layer on top of everything
-            this.topSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-            this.topSvg.style.position = "absolute";
-            this.topSvg.style.top = "0";
-            this.topSvg.style.left = "0";
-            this.topSvg.style.width = "100%";
-            this.topSvg.style.height = "100%";
-            this.topSvg.style.pointerEvents = "none";
-            this.topSvg.style.zIndex = "100";
-            
-            // Append to the chessboard container
-            if (chessboard.element) {
-                chessboard.element.appendChild(this.topSvg);
-            } else if (chessboard.view && chessboard.view.element) {
-                chessboard.view.element.appendChild(this.topSvg);
+
+
+    // Overlay markers rendered above pieces (independent from cm-chessboard Markers extension)
+    class OverlayMarkers {
+        constructor(chessboard, containerEl) {
+            this.chessboard = chessboard;
+            this.containerEl = containerEl;
+            this.keyToNodes = new Map(); // key -> {shape, text}
+
+            // Ensure the container is a positioning context
+            try {
+                const cs = window.getComputedStyle(this.containerEl);
+                if (cs.position === 'static') this.containerEl.style.position = 'relative';
+            } catch (e) {
+                // No-op
             }
 
-            // Sync viewBox and move markers
-            this.syncOverlay();
-            
-            // Keep syncing in case of resize/init delays
-            this.observer = new MutationObserver(() => this.syncOverlay());
-            if (chessboard.view.svg) {
-                this.observer.observe(chessboard.view.svg, { attributes: true, attributeFilter: ['viewBox'] });
-            }
+            // Create overlay SVG
+            this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            this.svg.setAttribute("id", "markerOverlay");
+            this.svg.setAttribute("aria-hidden", "true");
+            this.svg.style.position = "absolute";
+            this.svg.style.inset = "0";
+            this.svg.style.width = "100%";
+            this.svg.style.height = "100%";
+            this.svg.style.pointerEvents = "none";
+            this.svg.style.zIndex = "60";
+            this.svg.style.overflow = "visible";
+
+            this.gMarkers = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            this.gText = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            this.svg.appendChild(this.gMarkers);
+            this.svg.appendChild(this.gText);
+            this.containerEl.appendChild(this.svg);
+
+            // Keep overlay synced with the main board SVG viewBox
+            this._mo = new MutationObserver(() => this.sync());
+            this._startObservers();
+            window.addEventListener('resize', () => this.sync(), { passive: true });
+
+            // Initial sync (some browsers create the internal SVG asynchronously)
+            this.sync();
+            requestAnimationFrame(() => this.sync());
         }
 
-        syncOverlay() {
-            const mainSvg = this.chessboard.view.svg;
-            if (mainSvg && this.topSvg) {
-                // Sync viewBox
-                const viewBox = mainSvg.getAttribute("viewBox");
-                if (viewBox) this.topSvg.setAttribute("viewBox", viewBox);
-                
-                // Move markerGroup to top layer
-                if (this.markerGroup && this.markerGroup.parentNode !== this.topSvg) {
-                    this.topSvg.appendChild(this.markerGroup);
+        _startObservers() {
+            const tryAttach = () => {
+                const mainSvg = this.chessboard?.view?.svg;
+                if (mainSvg) {
+                    this._mo.observe(mainSvg, { attributes: true, attributeFilter: ['viewBox', 'width', 'height', 'preserveAspectRatio'] });
+                    return true;
                 }
-            }
-        }
-        
-        addMarker(type, square) {
-            if (type && type.dtm !== undefined) {
-                this.dtmBySquare.set(square, type.dtm);
-            }
-            // Handle dest/god markers AND source marker
-            if (type && (type.class === "marker-dest" || type.class.startsWith("marker-god") || type.class === "marker-source")) {
-                super.addMarker(type, square);
-                this.syncOverlay();
-            }
-        }
+                return false;
+            };
 
-        removeMarkers(type, square) {
-            super.removeMarkers(type, square);
-            if (!type && !square) {
-                this.dtmBySquare.clear();
+            if (!tryAttach()) {
+                // Retry a few frames in case the internal SVG isn't ready yet
+                let tries = 0;
+                const tick = () => {
+                    tries += 1;
+                    if (tryAttach() || tries > 20) return;
+                    requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
             }
         }
 
-        drawMarker(marker) {
-            super.drawMarker(marker);
-            
-            const dtmText = this.dtmBySquare.get(marker.square);
-            if (dtmText !== undefined && this.markerGroup) {
-                // Anti-duplication
-                const existing = this.markerGroup.querySelector(`.marker-dtm-text[data-square='${marker.square}']`);
-                if (existing) existing.remove();
+        sync() {
+            const mainSvg = this.chessboard?.view?.svg;
+            if (!mainSvg) return;
 
-                const view = this.chessboard.view;
-                const point = view.squareToPoint(marker.square);
-                const squareWidth = view.squareWidth;
-                const squareHeight = view.squareHeight;
-                
-                // Center text
-                const x = point.x + squareWidth / 2;
-                const y = point.y + squareHeight / 2;
-                
-                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                text.setAttribute("x", x);
-                text.setAttribute("y", y);
-                text.setAttribute("text-anchor", "middle");
-                text.setAttribute("dominant-baseline", "central");
-                text.setAttribute("class", "marker-dtm-text");
-                text.setAttribute("data-square", marker.square);
-                text.textContent = dtmText;
-                
-                // Style per spec
-                text.style.pointerEvents = "none";
-                text.style.fontFamily = "ui-sans-serif, system-ui, sans-serif";
-                text.style.fontWeight = "800";
-                
-                const minDim = Math.min(squareWidth, squareHeight);
-                text.style.fontSize = (minDim * 0.30) + "px";
-                
-                text.style.fill = "#000";
-                text.style.stroke = "white";
-                text.style.strokeWidth = (minDim * 0.04) + "px";
-                text.style.paintOrder = "stroke";
-                
-                this.markerGroup.appendChild(text);
+            const vb = mainSvg.getAttribute('viewBox');
+            if (vb) this.svg.setAttribute('viewBox', vb);
+
+            const par = mainSvg.getAttribute('preserveAspectRatio');
+            if (par) this.svg.setAttribute('preserveAspectRatio', par);
+        }
+
+        clear() {
+            this.keyToNodes.clear();
+            while (this.gMarkers.firstChild) this.gMarkers.removeChild(this.gMarkers.firstChild);
+            while (this.gText.firstChild) this.gText.removeChild(this.gText.firstChild);
+        }
+
+        add(markerDef, square) {
+            if (!markerDef || !square) return;
+            this.sync();
+
+            const view = this.chessboard?.view;
+            if (!view || typeof view.squareToPoint !== 'function') return;
+
+            const point = view.squareToPoint(square);
+            const w = view.squareWidth;
+            const h = view.squareHeight;
+            const minDim = Math.min(w, h);
+
+            const key = `${markerDef.class || 'marker'}:${square}`;
+
+            // Replace if already present
+            const existing = this.keyToNodes.get(key);
+            if (existing) {
+                if (existing.shape && existing.shape.parentNode) existing.shape.parentNode.removeChild(existing.shape);
+                if (existing.text && existing.text.parentNode) existing.text.parentNode.removeChild(existing.text);
+                this.keyToNodes.delete(key);
             }
+
+            const slice = String(markerDef.slice || 'markerDot');
+            let shape = null;
+            if (slice.toLowerCase().includes('square')) {
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                rect.setAttribute('x', point.x);
+                rect.setAttribute('y', point.y);
+                rect.setAttribute('width', w);
+                rect.setAttribute('height', h);
+                rect.classList.add('marker-square');
+                if (markerDef.class) rect.classList.add(markerDef.class);
+                rect.style.pointerEvents = 'none';
+                shape = rect;
+            } else {
+                const cx = point.x + w / 2;
+                const cy = point.y + h / 2;
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circle.setAttribute('cx', cx);
+                circle.setAttribute('cy', cy);
+                circle.setAttribute('r', minDim * 0.18);
+                circle.classList.add('marker-dot');
+                if (markerDef.class) circle.classList.add(markerDef.class);
+                circle.style.pointerEvents = 'none';
+                shape = circle;
+            }
+
+            this.gMarkers.appendChild(shape);
+
+            // DTM label (only when dtm != 0)
+            let textEl = null;
+            const dtm = markerDef.dtm;
+            if (Number.isFinite(dtm) && dtm !== 0) {
+                const cx = point.x + w / 2;
+                const cy = point.y + h / 2;
+
+                textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                textEl.setAttribute('x', cx);
+                textEl.setAttribute('y', cy);
+                textEl.setAttribute('text-anchor', 'middle');
+                textEl.setAttribute('dominant-baseline', 'central');
+                textEl.setAttribute('class', 'marker-dtm-text');
+                textEl.textContent = String(dtm);
+
+                textEl.style.pointerEvents = 'none';
+                textEl.style.fontFamily = 'ui-sans-serif, system-ui, sans-serif';
+                textEl.style.fontWeight = '900';
+                textEl.style.fontSize = (minDim * 0.30) + 'px';
+
+                // High contrast, readable on any marker color
+                textEl.style.fill = '#ffffff';
+                textEl.style.stroke = '#000000';
+                textEl.style.strokeWidth = (minDim * 0.07) + 'px';
+                textEl.style.paintOrder = 'stroke';
+
+                this.gText.appendChild(textEl);
+            }
+
+            this.keyToNodes.set(key, { shape, text: textEl });
         }
     }
 
-    const MARKER_SELECTED = { class: "marker-selected", slice: "markerSquare" };
     const MARKER_SOURCE = { class: "marker-source", slice: "markerSquare" };
     const MARKER_DEST = { class: "marker-dest", slice: "markerDot" };
     
@@ -591,7 +658,6 @@
     let streak = 0;
     let isUserTurn = false;
     let gameActive = false;
-    let currentObjective = null;
     let selectedSquare = null;
     let cachedPositions = null;
     let cachedFilename = null;
@@ -612,8 +678,10 @@
         pieces: { file: "pieces/standard.svg" },
         borderType: BORDER_TYPE.none
       },
-      extensions: [{ class: Arrows }, { class: PromotionDialog }, { class: CustomMarkers }]
+      extensions: [{ class: Arrows }, { class: PromotionDialog }]
     });
+
+    const overlayMarkers = new OverlayMarkers(board, document.getElementById("board"));
 
     board.enableMoveInput((event) => {
         if (!isUserTurn || !gameActive) return false;
@@ -702,7 +770,7 @@
                         });
                         return true; // Let piece drop visually
                     } else {
-                        handleUserMove(sqFrom, sqTo);
+                        void handleUserMove(sqFrom, sqTo).catch(console.error);
                     }
                 }
                 return true;
@@ -734,7 +802,6 @@
             const turnStr = chess.turn() === 'w' ? "White" : "Black";
             setStatus(null, `Analysis Mode On: ${turnStr} to move.`);
             setGuessEnabled(false);
-            el.guessControls.classList.add("hidden");
         });
     }
 
@@ -766,7 +833,7 @@
                 const turnStr = chess.turn() === 'w' ? "White" : "Black";
                 if (godMode) setStatus(null, `Analysis Mode On: ${turnStr} to move.`);
                 else setStatus(null, `Analysis Mode Off: ${turnStr} to move.`);
-            } else if (!el.btnWin.classList.contains("hidden")) {
+            } else if (!el.btnWin.disabled) {
                 setStatus(null, "Guess result or Play a move.");
             } else {
                 setStatus(null, "");
@@ -777,6 +844,7 @@
             if (chess.history().length === 0) {
                  el.btnUndo.classList.add("hidden");
                  el.btnUndo.style.display = 'none';
+                 setGuessEnabled(true);
             } else {
                  el.btnUndo.classList.remove("hidden");
                  el.btnUndo.style.display = '';
@@ -786,12 +854,12 @@
 
     function selectSquare(sq) {
         clearArrows(); // Clear arrows on selection
-        board.removeMarkers(); // Clear all markers (source, dest, god mode, etc.)
+        overlayMarkers.clear(); // Clear all overlay markers (source, dest, analysis, etc.)
         
         selectedSquare = sq;
         if (selectedSquare) {
             // Add Source Marker
-            board.addMarker(MARKER_SOURCE, selectedSquare);
+            overlayMarkers.add(MARKER_SOURCE, selectedSquare);
             
             if (godMode && currentTbData && currentTbData.moves) {
                 // Analysis Mode: Use TB data to color destinations
@@ -844,14 +912,14 @@
                         marker.dtm = data.dtm;
                     }
                     
-                    board.addMarker(marker, dest);
+                    overlayMarkers.add(marker, dest);
                 });
                 
             } else {
                 // Standard Mode: Show valid destinations (green dots)
                 const moves = chess.moves({ square: selectedSquare, verbose: true });
                 moves.forEach(m => {
-                    board.addMarker(MARKER_DEST, m.to);
+                    overlayMarkers.add(MARKER_DEST, m.to);
                 });
             }
         }
@@ -887,7 +955,6 @@
     });
 
     // Start
-    console.log("Starting game loop...");
     startNewGame();
 
 
@@ -901,10 +968,6 @@
         clearArrows();
         selectSquare(null);
         setGuessEnabled(false);
-        el.btnWin.classList.remove("hidden");
-        el.btnDraw.classList.remove("hidden");
-        el.btnLoss.classList.remove("hidden");
-        if(el.guessControls) el.guessControls.classList.remove("hidden");
         if(el.btnUndo) el.btnUndo.classList.add("hidden");
         if(el.godModeBtn) {
             el.godModeBtn.classList.remove("active");
@@ -964,6 +1027,8 @@
             clearArrows();
 
             selectSquare(null);
+            
+            setGuessEnabled(false);
 
     
 
@@ -1102,6 +1167,11 @@
     
 
             // Evaluate Move
+            if (!currentTbData || typeof currentTbData.wdl !== 'number') {
+                setStatus('bad', 'Internal error: missing tablebase data.');
+                endGame(false, 'Internal error: missing tablebase data.');
+                return;
+            }
 
             const prevWdl = currentTbData.wdl;
 
@@ -1285,17 +1355,31 @@
 
                     
 
-                    isUserTurn = true;
+                                        
 
-                    if (!el.btnWin.classList.contains("hidden")) {
+                    
 
-                        setStatus(null, "Guess result or Play a move.");
+                                        isUserTurn = true;
 
-                    } else {
+                    
 
-                        setStatus(null, "");
+                                        if (!el.btnWin.disabled) {
 
-                    }
+                    
+
+                                            setStatus(null, "Guess result or Play a move.");
+
+                    
+
+                                        } else {
+
+                    
+
+                                            setStatus(null, "");
+
+                    
+
+                                        }
 
                     
 
@@ -1354,9 +1438,6 @@
         }
         setGuessEnabled(false);
         // Hide only guess buttons
-        el.btnWin.classList.add("hidden");
-        el.btnDraw.classList.add("hidden");
-        el.btnLoss.classList.add("hidden");
         // Analysis Mode toggle is always visible now
     }
 
@@ -1444,10 +1525,6 @@
         isUserTurn = false;
         setStatus(success ? "ok" : "bad", msg);
         setGuessEnabled(false);
-        
-        el.btnWin.classList.add("hidden");
-        el.btnDraw.classList.add("hidden");
-        el.btnLoss.classList.add("hidden");
         
         if (!success) {
             streak = 0;
