@@ -786,7 +786,7 @@
     el.btnUndo.addEventListener("click", undoLastMove);
     
     if (el.godModeBtn) {
-        el.godModeBtn.addEventListener("click", () => {
+        el.godModeBtn.addEventListener("click", async () => {
             if (godMode) return; // Cannot turn OFF via this button as per request
             
             godMode = true;
@@ -796,12 +796,24 @@
             selectSquare(null);
             clearArrows();
 
-            gameActive = true; // Ensure movement is allowed
-            analysisMode = false;
-            streakInvalidated = true;
-            const turnStr = chess.turn() === 'w' ? "White" : "Black";
-            setStatus(null, `Analysis Mode On: ${turnStr} to move.`);
-            setGuessEnabled(false);
+            setStatus("warn", "Loading analysis...");
+
+            try {
+                // Fetch fresh data for current position (essential if game ended on blunder)
+                currentFen = chess.fen();
+                currentTbData = await fetchTablebase(currentFen);
+
+                gameActive = true; // Ensure movement is allowed
+                isUserTurn = true; // Ensure user can move immediately
+                analysisMode = false;
+                streakInvalidated = true;
+                const turnStr = chess.turn() === 'w' ? "White" : "Black";
+                setStatus(null, `Analysis Mode On: ${turnStr} to move.`);
+                setGuessEnabled(false);
+            } catch(e) {
+                console.error(e);
+                setStatus("bad", "Error loading analysis.");
+            }
         });
     }
 
@@ -1148,15 +1160,27 @@
 
                     
 
-                                 } catch(e) { console.error(e); }
+                                                                  } catch(e) { console.error(e); }
 
                     
 
-                                 return true;
+                                 
 
                     
 
-                            }
+                                                                  isUserTurn = true; // Keep turn for user in analysis mode
+
+                    
+
+                                                                  return true;
+
+                    
+
+                                                     
+
+                    
+
+                                                             }
 
     
 
