@@ -393,7 +393,7 @@
         </div>
 
         <div style="display:flex; gap:10px; align-items:stretch;">
-            <div id="status" class="status" style="flex-grow:1;">Initializing...</div>
+            <div id="status" class="status" style="flex-grow:1;">Setting up the board...</div>
             
             <button id="btnUndo" class="hidden" style="width: 50px; padding:0; font-size:1.5rem; border-radius:14px;" title="Undo last move">↺</button>
         </div>
@@ -808,7 +808,7 @@
                 analysisMode = false;
                 streakInvalidated = true;
                 const turnStr = chess.turn() === 'w' ? "White" : "Black";
-                setStatus(null, `Analysis Mode On: ${turnStr} to move.`);
+                setStatus(null, `Analysis: ${turnStr} to move.`);
                 setGuessEnabled(false);
             } catch(e) {
                 console.error(e);
@@ -843,10 +843,10 @@
             
             if (godMode || analysisMode) {
                 const turnStr = chess.turn() === 'w' ? "White" : "Black";
-                if (godMode) setStatus(null, `Analysis Mode On: ${turnStr} to move.`);
-                else setStatus(null, `Analysis Mode Off: ${turnStr} to move.`);
+                setStatus(null, `Analysis: ${turnStr} to move.`);
             } else if (!el.btnWin.disabled) {
-                setStatus(null, "Guess result or Play a move.");
+                const turnStr = chess.turn() === 'w' ? "White" : "Black";
+                setStatus(null, `${turnStr} to move: Evaluate or play.`);
             } else {
                 setStatus(null, "");
             }
@@ -856,7 +856,9 @@
             if (chess.history().length === 0) {
                  el.btnUndo.classList.add("hidden");
                  el.btnUndo.style.display = 'none';
-                 setGuessEnabled(true);
+                 if (!godMode && !analysisMode) {
+                     setGuessEnabled(true);
+                 }
             } else {
                  el.btnUndo.classList.remove("hidden");
                  el.btnUndo.style.display = '';
@@ -987,7 +989,7 @@
         godMode = false;
         analysisMode = false;
         streakInvalidated = false;
-        setStatus("warn", "Generating position...");
+        setStatus("warn", "Setting up the board...");
         
         try {
             console.log("Generating valid position...");
@@ -1015,7 +1017,8 @@
             // normalize wdl from category if needed handled in fetchTablebase
             
             updateLinks(initialFen);
-            setStatus(null, "Guess result or Play a move.");
+            const turnStr = chess.turn() === 'w' ? "White" : "Black";
+            setStatus(null, `${turnStr} to move: Evaluate or play.`);
             setGuessEnabled(true);
             gameActive = true;
             isUserTurn = true;
@@ -1040,7 +1043,7 @@
 
             selectSquare(null);
             
-            setGuessEnabled(false);
+
 
     
 
@@ -1128,136 +1131,895 @@
 
                  
 
-                              try {
+                                                            try {
 
-                    currentTbData = await fetchTablebase(currentFen);
+                 
 
-                    const turnStr = chess.turn() === 'w' ? "White" : "Black";
+                 
 
-                    
+                 
 
-                    if (godMode) {
+                              
 
-                        setStatus(null, `Analysis Mode On: ${turnStr} to move.`);
+                 
 
-                    } else {
+                 
 
-                        setStatus(null, `Analysis Mode Off: ${turnStr} to move.`);
+                 
 
-                    }
+                                                  currentTbData = await fetchTablebase(currentFen);
 
-                    
+                 
 
-                                    if (isReallyGameOver()) {
+                 
 
-                    
+                 
 
-                                        handleGameOver();
+                              
 
-                    
+                 
 
-                                    }
+                 
 
-                    
+                 
 
-                                                                  } catch(e) { console.error(e); }
+                                                  const turnStr = chess.turn() === 'w' ? "White" : "Black";
 
-                    
+                 
 
-                                 
+                 
 
-                    
+                 
 
-                                                                  isUserTurn = true; // Keep turn for user in analysis mode
+                              
 
-                    
+                 
 
-                                                                  return true;
+                 
 
-                    
+                 
 
-                                                     
+                                                  
 
-                    
+                 
 
-                                                             }
+                 
 
-    
+                 
 
-            isUserTurn = false;
+                              
 
-            setStatus("warn", "Thinking...");
+                 
 
-    
+                 
 
-            // Evaluate Move
-            if (!currentTbData || typeof currentTbData.wdl !== 'number') {
-                setStatus('bad', 'Internal error: missing tablebase data.');
-                endGame(false, 'Internal error: missing tablebase data.');
-                return;
-            }
+                 
 
-            const prevWdl = currentTbData.wdl;
+                                                  setStatus(null, `Analysis: ${turnStr} to move.`);
 
-            
+                 
 
-            // Fetch new data
+                 
 
-            try {
+                 
 
-                const newFen = chess.fen();
+                              
 
-                console.log("Fetching response for FEN:", newFen);
+                 
 
-                const newData = await fetchTablebase(newFen);
+                 
 
-                console.log("Response received:", newData);
+                 
 
-                
+                                                  
 
-                // Check blunder
+                 
 
-                // White moved. Now Black to move.
+                 
 
-                // If White was Winning (2), Black should be Losing (-2).
+                 
 
-                // If White was Drawing (0), Black should be Drawing (0).
+                              
 
-                
+                 
 
-                let failed = false;
+                 
 
-                let msg = "";
+                 
 
-    
+                                                                  if (isReallyGameOver()) {
 
-                if (prevWdl === 2) { // We were winning
+                 
 
-                     if (newData.wdl !== -2) { // Opponent not losing
+                 
 
-                         failed = true;
+                 
 
-                         // newData.wdl: 2 (Opponent Wins) -> We Lost
+                              
 
-                         // newData.wdl: 0 (Draw) -> We Drew
+                 
 
-                         const outcome = newData.wdl === 2 ? "Loss" : "Draw";
+                 
 
-                         msg = `Blunder! You turned a Win into a ${outcome}.`;
+                 
 
-                     }
+                                                  
 
-                } else if (prevWdl === 0) { // Drawing
+                 
 
-                     if (newData.wdl === 2) { // Opponent Winning
+                 
 
-                         failed = true;
+                 
 
-                         msg = "Blunder! You turned a Draw into a Loss.";
+                              
 
-                     }
+                 
 
-                }
+                 
+
+                 
+
+                                                                      handleGameOver();
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                  
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                                  }
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                  
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                               } catch(e) { console.error(e); }
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                  
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                               isUserTurn = true; // Keep turn for user in analysis mode
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                               return true;
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                  
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                          }
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                  
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                          isUserTurn = false;
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                          setStatus("warn", "Thinking...");
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                  
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                          // Evaluate Move
+
+                 
+
+                 
+
+                 
+
+                                          if (!currentTbData || typeof currentTbData.wdl !== 'number') {
+
+                 
+
+                 
+
+                 
+
+                                              setStatus('bad', 'Internal error: missing tablebase data.');
+
+                 
+
+                 
+
+                 
+
+                                              endGame(false, 'Internal error: missing tablebase data.');
+
+                 
+
+                 
+
+                 
+
+                                              return;
+
+                 
+
+                 
+
+                 
+
+                                          }
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                          const prevWdl = currentTbData.wdl;
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                          
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                          // Fetch new data
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                          try {
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              const newFen = chess.fen();
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              console.log("Fetching response for FEN:", newFen);
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              const newData = await fetchTablebase(newFen);
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              console.log("Response received:", newData);
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              // Check blunder
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              // White moved. Now Black to move.
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              // If White was Winning (2), Black should be Losing (-2).
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              // If White was Drawing (0), Black should be Drawing (0).
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              let failed = false;
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              let msg = "";
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                  
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              if (prevWdl === 2) { // We were winning
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                   if (newData.wdl === 0) { // Drew
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                       failed = true;
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                       msg = `Slip-up! You let the win escape.`;
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                   } else if (newData.wdl === 2) { // Lost
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                       failed = true;
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                       msg = `Huge blunder! You threw away the win.`;
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                   }
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              } else if (prevWdl === 0) { // Drawing
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                   if (newData.wdl === 2) { // Opponent Winning (We lost)
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                       failed = true;
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                       msg = "Mistake. The position is now lost.";
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                                   }
+
+                 
+
+                 
+
+                 
+
+                              
+
+                 
+
+                 
+
+                 
+
+                                              }
 
                 
 
@@ -1387,21 +2149,17 @@
 
                     
 
-                                        if (!el.btnWin.disabled) {
+                                        if (!godMode && !analysisMode) {
 
-                    
+                                            setGuessEnabled(true);
 
-                                            setStatus(null, "Guess result or Play a move.");
+                                            const turnStr = chess.turn() === 'w' ? "White" : "Black";
 
-                    
+                                            setStatus(null, `${turnStr} to move: Evaluate or play.`);
 
                                         } else {
 
-                    
-
                                             setStatus(null, "");
-
-                    
 
                                         }
 
@@ -1454,11 +2212,11 @@
                 streak++;
                 updateStreak();
             }
-            setStatus("ok", `Correct! It is a ${wdlToString(actualWdl)}.`);
+            setStatus("ok", `Spot on! This is indeed a ${wdlToString(actualWdl)}.`);
         } else {
             streak = 0;
             updateStreak();
-            setStatus("bad", `Wrong. It is a ${wdlToString(actualWdl)}.`);
+            setStatus("bad", `Nope. This was a ${wdlToString(actualWdl)}`);
         }
         setGuessEnabled(false);
         // Hide only guess buttons
@@ -1499,32 +2257,32 @@
         if (actualResult === 1) {
             // User Won
             success = true;
-            if (initialWdl === 1) msg = "You won a winning position.";
-            else if (initialWdl === 0) msg = "You won a drawn position!";
-            else msg = "You won a lost position!"; // Analysis Mode or miracle
+            if (initialWdl === 1) msg = "Nice conversion! Victory secured.";
+            else if (initialWdl === 0) msg = "Result: Win (Transposed from Draw).";
+            else msg = "Result: Win (Transposed from Loss)."; 
         } else if (actualResult === -1) {
             // User Lost
             if (initialWdl === 1) {
                 success = false;
-                msg = "You lost a winning position.";
+                msg = "You failed to convert the win.";
             } else if (initialWdl === 0) {
                 success = false;
-                msg = "You lost a drawn position.";
+                msg = "Defense failed. You lost a drawable game.";
             } else {
-                success = true; // Expected loss achieved? usually failure in training but ok here
-                msg = "You lost a lost position.";
+                success = true; 
+                msg = "Expected result. The position was lost from the start.";
             }
         } else {
             // Draw
             if (initialWdl === 1) {
                 success = false;
-                msg = "You drew a winning position.";
+                msg = "You missed the win. Game drawn.";
             } else if (initialWdl === 0) {
                 success = true;
-                msg = "You drew a drawn position.";
+                msg = "Solid defense. Draw secured.";
             } else {
-                success = true; // Saved a draw!
-                msg = "You drew a lost position!";
+                success = true; 
+                msg = "Result: Draw (Transposed from Loss).";
             }
         }
 
