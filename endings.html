@@ -440,6 +440,7 @@
     class CustomMarkers extends Markers {
         constructor(chessboard, props) {
             super(chessboard, props);
+            this.dtmBySquare = new Map();
             
             // Create a new SVG layer on top of everything
             this.topSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -452,7 +453,6 @@
             this.topSvg.style.zIndex = "100";
             
             // Append to the chessboard container
-            // chessboard.element is usually the container div
             if (chessboard.element) {
                 chessboard.element.appendChild(this.topSvg);
             } else if (chessboard.view && chessboard.view.element) {
@@ -484,75 +484,64 @@
         }
         
         addMarker(type, square) {
+            if (type && type.dtm !== undefined) {
+                this.dtmBySquare.set(square, type.dtm);
+            }
             // Handle dest/god markers AND source marker
             if (type && (type.class === "marker-dest" || type.class.startsWith("marker-god") || type.class === "marker-source")) {
                 super.addMarker(type, square);
-                
-                // Add DTM text if present
-                if (type.dtm !== undefined && this.markerGroup) {
-                    const lastChild = this.markerGroup.lastElementChild;
-                    
-                    if (lastChild && lastChild.tagName === "use") {
-                        const xStr = lastChild.getAttribute("x");
-                        const yStr = lastChild.getAttribute("y");
-                        const wStr = lastChild.getAttribute("width");
-                        const hStr = lastChild.getAttribute("height");
-                        
-                        // console.log("DTM Marker:", type.dtm, "Square:", square, "Attrs:", xStr, yStr, wStr, hStr);
-
-                        const x = parseFloat(xStr || "0");
-                        const y = parseFloat(yStr || "0");
-                        const width = parseFloat(wStr || "0");
-                        const height = parseFloat(hStr || "0");
-                        
-                        if (width > 0) {
-                            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                            text.setAttribute("x", x + width / 2);
-                            text.setAttribute("y", y + height / 2);
-                            text.setAttribute("text-anchor", "middle");
-                            text.setAttribute("dominant-baseline", "central");
-                            text.setAttribute("class", "marker-dtm-text");
-                            text.setAttribute("data-square", square);
-                            text.textContent = type.dtm;
-                            
-                            // Style
-                            text.style.pointerEvents = "none";
-                            text.style.fontSize = (width * 0.35) + "px";
-                            text.style.fontFamily = "sans-serif";
-                            text.style.fontWeight = "bold";
-                            text.style.fill = "#000"; // Black text
-                            // Add white stroke for contrast on colored dots
-                            text.style.stroke = "white";
-                            text.style.strokeWidth = "0.5px";
-                            text.style.paintOrder = "stroke"; 
-                            
-                            this.markerGroup.appendChild(text);
-                        } else {
-                            console.warn("Marker width is 0 or missing, cannot center text.");
-                        }
-                    } else {
-                        console.warn("Last child is not 'use', cannot add DTM.");
-                    }
-                }
-
-                // Trigger check immediately just in case
                 this.syncOverlay();
             }
         }
 
         removeMarkers(type, square) {
-            if (!type || (type.class === "marker-dest" || type.class.startsWith("marker-god") || type.class === "marker-source")) {
-                super.removeMarkers(type, square);
+            super.removeMarkers(type, square);
+            if (!type && !square) {
+                this.dtmBySquare.clear();
+            }
+        }
+
+        drawMarker(marker) {
+            super.drawMarker(marker);
+            
+            const dtmText = this.dtmBySquare.get(marker.square);
+            if (dtmText !== undefined && this.markerGroup) {
+                // Anti-duplication
+                const existing = this.markerGroup.querySelector(`.marker-dtm-text[data-square='${marker.square}']`);
+                if (existing) existing.remove();
+
+                const view = this.chessboard.view;
+                const point = view.squareToPoint(marker.square);
+                const squareWidth = view.squareWidth;
+                const squareHeight = view.squareHeight;
                 
-                // Remove associated text
-                if (this.markerGroup) {
-                    let selector = ".marker-dtm-text";
-                    if (square) {
-                        selector += `[data-square='${square}']`;
-                    }
-                    const texts = this.markerGroup.querySelectorAll(selector);
-                    texts.forEach(t => t.remove());
-                }
+                // Center text
+                const x = point.x + squareWidth / 2;
+                const y = point.y + squareHeight / 2;
+                
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", x);
+                text.setAttribute("y", y);
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("dominant-baseline", "central");
+                text.setAttribute("class", "marker-dtm-text");
+                text.setAttribute("data-square", marker.square);
+                text.textContent = dtmText;
+                
+                // Style per spec
+                text.style.pointerEvents = "none";
+                text.style.fontFamily = "ui-sans-serif, system-ui, sans-serif";
+                text.style.fontWeight = "800";
+                
+                const minDim = Math.min(squareWidth, squareHeight);
+                text.style.fontSize = (minDim * 0.30) + "px";
+                
+                text.style.fill = "#000";
+                text.style.stroke = "white";
+                text.style.strokeWidth = (minDim * 0.04) + "px";
+                text.style.paintOrder = "stroke";
+                
+                this.markerGroup.appendChild(text);
             }
         }
     }
