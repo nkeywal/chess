@@ -1003,7 +1003,9 @@
       }
       const recordLength = w.length + b.length;
       const totalRecords = Math.floor(text.length / recordLength);
-      const record = text.substring(Math.floor(Math.random() * totalRecords) * recordLength, Math.floor(Math.random() * totalRecords) * recordLength + recordLength);
+      const randomIndex = Math.floor(Math.random() * totalRecords);
+      const start = randomIndex * recordLength;
+      const record = text.substring(start, start + recordLength);
       const grid = Array(8).fill(null).map(() => Array(8).fill(""));
       const flatList = [...w.map(p => ({type: p, color: 'w'})), ...b.map(p => ({type: p, color: 'b'}))];
       for (let i = 0; i < recordLength; i++) {
