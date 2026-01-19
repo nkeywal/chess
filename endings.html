@@ -24,7 +24,7 @@
       --color-analysis: #6FB4FF;
       --color-win: #1F6F4A;
       --color-win-best: #2ecc71;
-      --color-draw: #95a5a6;
+      --color-draw: #d97706;
       --color-loss: #e74c3c;
       --color-neutral-icon: rgba(255,255,255,0.55);
 
@@ -243,16 +243,16 @@
     }
 
     .marker-dest {
-        fill: rgba(20, 85, 30, 0.5) !important; /* Lichess-style green dots */
+        fill: rgba(20, 85, 30, 0.7) !important; /* Lichess-style green dots, 70% opacity */
         stroke: none;
         pointer-events: none;
     }
 
     /* Analysis Mode Markers (Flashy) */
-    .marker-god-win { fill: var(--color-win-best); opacity: 0.6; pointer-events: none; }
-    .marker-god-win-best { fill: var(--color-win-best); opacity: 0.8; pointer-events: none; }
-    .marker-god-draw { fill: var(--color-draw); opacity: 0.6; pointer-events: none; }
-    .marker-god-loss { fill: var(--color-loss); opacity: 0.6; pointer-events: none; }
+    .marker-god-win { fill: var(--color-win-best); opacity: 0.7; pointer-events: none; }
+    .marker-god-win-best { fill: var(--color-win-best); opacity: 0.7; pointer-events: none; }
+    .marker-god-draw { fill: var(--color-draw); opacity: 0.7; pointer-events: none; }
+    .marker-god-loss { fill: var(--color-loss); opacity: 0.7; pointer-events: none; }
 
     /* Ensure markers are on top of pieces */
     /* Marker overlay (above pieces) */
@@ -572,7 +572,7 @@
                 const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
                 circle.setAttribute('cx', cx);
                 circle.setAttribute('cy', cy);
-                circle.setAttribute('r', minDim * 0.18);
+                circle.setAttribute('r', minDim * 0.23);
                 circle.classList.add('marker-dot');
                 if (markerDef.class) circle.classList.add(markerDef.class);
                 circle.style.pointerEvents = 'none';
@@ -599,12 +599,12 @@
                 textEl.style.pointerEvents = 'none';
                 textEl.style.fontFamily = 'ui-sans-serif, system-ui, sans-serif';
                 textEl.style.fontWeight = '900';
-                textEl.style.fontSize = (minDim * 0.30) + 'px';
+                textEl.style.fontSize = (minDim * 0.23) + 'px';
 
                 // High contrast, readable on any marker color
                 textEl.style.fill = '#ffffff';
                 textEl.style.stroke = '#000000';
-                textEl.style.strokeWidth = (minDim * 0.07) + 'px';
+                textEl.style.strokeWidth = (minDim * 0.055) + 'px';
                 textEl.style.paintOrder = 'stroke';
 
                 this.gText.appendChild(textEl);
