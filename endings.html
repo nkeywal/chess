@@ -161,9 +161,9 @@
     .status {
       padding: 12px 14px;
       border-radius: 14px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.02);
-      color: var(--muted);
+      border: none; /* Removed border */
+      background: transparent; /* Removed background */
+      color: #e7eefc; /* Matched to title color */
       font-size: 14px;
       line-height: 1.35;
       white-space: pre-wrap;
@@ -189,15 +189,15 @@
 
     button, a.linkBtn {
       appearance: none;
-      border: none; /* Removed border */
-      background: var(--btn);
+      border: 1px solid rgba(255,255,255,0.3); /* Subtle border */
+      background: transparent; /* No solid background */
       color: var(--text);
       padding: 10px 12px;
       border-radius: 14px;
       cursor: pointer;
       font-weight: 750;
       letter-spacing: 0.2px;
-      transition: transform 0.04s ease, background 0.15s ease, opacity 0.15s ease;
+      transition: transform 0.04s ease, background 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
       text-align: center;
       text-decoration: none;
       display: inline-flex;
@@ -207,168 +207,35 @@
       min-height: 44px;
       font-size: 0.95rem;
     }
-    button:hover, a.linkBtn:hover { background: var(--btnHover); }
+    button:hover, a.linkBtn:hover { 
+        background: rgba(255,255,255,0.08); 
+        border-color: rgba(255,255,255,0.5);
+    }
     button:active, a.linkBtn:active { transform: translateY(1px); }
     button:disabled, a.linkBtn[aria-disabled="true"] {
       opacity: 0.55;
       cursor: not-allowed;
     }
 
-    .btn-win { background: var(--color-win) !important; opacity: 0.85; }
-    .btn-draw { background: var(--color-draw) !important; opacity: 0.85; }
-    .btn-loss { background: var(--color-loss) !important; opacity: 0.85; }
-    
+    #btnNew {
+        font-weight: normal;
+        background: #3b82f6 !important;
+        color: #ffffff !important;
+        border: none !important;
+    }
+
+    button:hover#btnNew {
+        background: #2563eb !important; /* Slightly darker on hover */
+    }
+
+    .btn-win { background: var(--color-win) !important; color: #e7eefc !important; opacity: 0.85; }
+    .btn-draw { background: var(--color-draw) !important; color: #e7eefc !important; opacity: 0.85; }
+    .btn-loss { background: var(--color-loss) !important; color: #e7eefc !important; opacity: 0.85; }
     .btn-win:hover, .btn-draw:hover, .btn-loss:hover { opacity: 1; }
-
-    details {
-      border: none; /* Removed border */
-      border-radius: 14px;
-      background: rgba(255,255,255,0.02);
-      overflow: hidden;
-    }
-    summary {
-      cursor: pointer;
-      list-style: none;
-      padding: 10px 12px;
-      color: var(--muted);
-      font-weight: 800;
-      user-select: none;
-    }
-    summary::-webkit-details-marker { display: none; }
-
-    .detailsBody {
-      padding: 10px 12px 12px 12px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      justify-content: center;
-    }
-
-    .piece-group {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        min-width: 100px;
-    }
-    .piece-group strong { color: var(--text); margin-bottom: 5px; display:block; }
-    .piece-group label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.9rem; cursor: pointer; }
-    .piece-group input { cursor: pointer; }
-
-    .streak-display {
-        text-align: center;
-        color: var(--muted);
-        font-size: 0.9rem;
-        margin-bottom: 5px;
-    }
-    .streak-display strong { color: var(--text); }
-    
-    .hidden { display: none !important; }
-
-    .marker-selected {
-        fill: rgba(255, 255, 255, 0.4);
-        stroke: none;
-        pointer-events: none;
-    }
-
-    .marker-source {
-        fill: rgba(20, 85, 30, 0.5) !important; /* Lichess-style greenish background - increased opacity */
-        stroke: none;
-        pointer-events: none;
-    }
-
-    .marker-dest {
-        fill: rgba(20, 85, 30, 0.5);
-        stroke: none;
-        pointer-events: none;
-    }
-
-            /* Analysis Mode Markers (Flashy) */
-
-            .marker-god-win { fill: var(--color-win); opacity: 0.5; pointer-events: none; }
-
-            .marker-god-win-best { fill: var(--color-win-best); opacity: 0.8; pointer-events: none; }
-
-            .marker-god-draw { fill: var(--color-draw); opacity: 0.6; pointer-events: none; }
-
-            .marker-god-loss { fill: var(--color-loss); opacity: 0.6; pointer-events: none; }
-
-    /* Ensure markers are on top of pieces */
-    #board svg .marker-dot {
-        z-index: 10;
-        pointer-events: none;
-    }
-    
-    #board svg .marker-square {
-        z-index: 1;
-        pointer-events: none;
-    }
-
-    /* If cm-chessboard uses a specific layer structure, we might need to force the dot layer */
-    #board .markers-layer.marker-dot {
-        display: block;
-    }
-    
-    /* --- Layout --- */
-
-    /* Link lines to custom markers defined in HTML */
-    /* Target the group and all children to force stroke */
-    .arrow-win, .arrow-win * { 
-        stroke: #1F6F4A !important; 
-        stroke-width: 4px !important;
-        fill: none !important;
-    }
-    .arrow-win line, .arrow-win path {
-        marker-end: url(#arrowHeadWin) !important;
-    }
-    
-    .arrow-win-best, .arrow-win-best * { 
-        stroke: var(--color-win-best) !important; 
-        stroke-width: 4px !important;
-        fill: none !important;
-    }
-    .arrow-win-best line, .arrow-win-best path {
-        marker-end: url(#arrowHeadWinBest) !important;
-    }
-
-    .arrow-draw, .arrow-draw * {  
-        stroke: var(--color-draw) !important; 
-        stroke-width: 4px !important;
-        fill: none !important;
-    }
-    .arrow-draw line, .arrow-draw path {
-        marker-end: url(#arrowHeadDraw) !important;
-    }
-
-    .arrow-loss, .arrow-loss * { 
-        stroke: var(--color-loss) !important; 
-        stroke-width: 4px !important;
-        fill: none !important;
-    }
-    .arrow-loss line, .arrow-loss path {
-        marker-end: url(#arrowHeadLoss) !important;
-    }
-
-    /* Common visual finish */
-    .arrow-win, .arrow-draw, .arrow-loss {
-        opacity: 0.9;
-        filter: drop-shadow(0 0 4px rgba(0,0,0,0.5));
-    }
-    
-    /* Ensure the lines have round caps */
-    .arrow-win line, .arrow-draw line, .arrow-loss line {
-        stroke-linecap: round;
-    }
-
-    /* Remove old marker styling attempts */
-    #board svg marker path,
-    #board svg marker polygon {
-        stroke-width: 0;
-    }
 
     /* Analysis Mode Toggle styling */
     #godModeBtn {
-        /* Matches standard button style (linkBtn) */
+        /* Base styles inherited from button/linkBtn */
         color: var(--color-analysis); /* Always use the Analysis/Tool color */
         font-size: 1.2rem;
     }
@@ -414,17 +281,23 @@
 
       <div class="sideCard">
         
-        <div style="display:flex; justify-content:center; align-items:center; gap: 10px; padding: 4px 0;">
-             <select id="endgameSelect" style="flex-grow:1; padding:10px; border-radius:14px; background:var(--btn); color:var(--text); border:1px solid var(--border); font-size:1.4rem; cursor:pointer;">
-                 <option value="KP_K">♚♟ vs ♔</option>
-                 <option value="K_KP">♚ vs ♔♙</option>
-                 <option value="KP_KR">♚♟ vs ♔♖</option>
-                 <option value="KR_KP">♚♜ vs ♔♙</option>
-                 <option value="KRP_KR">♚♜♟ vs ♔♖</option>
-                 <option value="KR_KRP">♚♜ vs ♔♖♙</option>
-                 <option value="KBP_KB">♚♝♟ vs ♔♗</option>
-             </select>
-             <div class="streak-card" style="white-space:nowrap; padding: 10px 14px; border-radius:14px; border:none; background:rgba(255,255,255,0.02); font-size:14px; display:flex; align-items:center; justify-content:center;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap: 10px; padding: 4px 0;">
+             <!-- Styled Dropdown Container -->
+             <div style="position:relative; display:inline-flex; align-items:center; cursor:pointer;">
+                 <select id="endgameSelect" style="appearance:none; -webkit-appearance:none; background:transparent; border:none; color:#FFFFFF; font-size:1.4rem; cursor:pointer; padding-right:20px; outline:none; font-family:inherit;">
+                     <option value="KP_K" style="background:var(--bg);">♚♟ vs ♔</option>
+                     <option value="K_KP" style="background:var(--bg);">♚ vs ♔♙</option>
+                     <option value="KP_KR" style="background:var(--bg);">♚♟ vs ♔♖</option>
+                     <option value="KR_KP" style="background:var(--bg);">♚♜ vs ♔♙</option>
+                     <option value="KRP_KR" style="background:var(--bg);">♚♜♟ vs ♔♖</option>
+                     <option value="KR_KRP" style="background:var(--bg);">♚♜ vs ♔♖♙</option>
+                     <option value="KBP_KB" style="background:var(--bg);">♚♝♟ vs ♔♗</option>
+                 </select>
+                 <!-- Chevron Icon -->
+                 <span style="position:absolute; right:0; pointer-events:none; color:#FFFFFF; font-size:0.8rem; margin-top:2px;">▾</span>
+             </div>
+
+             <div class="streak-card" style="white-space:nowrap; padding: 10px 0; border:none; background:transparent; font-size:14px; display:flex; align-items:center; justify-content:center;">
                 Streak: <strong id="streak" style="margin-left:5px; font-size: 1.1rem;">0</strong>
              </div>
         </div>
@@ -441,21 +314,27 @@
           <button class="btn-loss" id="btnLoss">Loss</button>
         </div>
 
-        <button id="btnPlayAgain" class="hidden" style="background:var(--highlight-win); border:none; color:white;">Play Again &rarr;</button>
-
-        <div class="btnRow2" style="align-items:center;">
-          <button id="btnNew">New Position</button>
+        <div class="btnRow2" style="display:flex; gap:10px; align-items:stretch; width:100%;">
+          <button id="btnNew" style="flex:2;" title="New Position">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M3 21v-5h5" />
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <rect x="9" y="9" width="6" height="6" rx="0.5" />
+              <path d="M12 9v6" />
+              <path d="M9 12h6" />
+            </svg>
+          </button>
           
-          <div style="display:flex; gap:10px; align-items:center; width:100%;">
-              <button id="godModeBtn" class="linkBtn" style="flex:1 1 0;" title="Analysis Mode">
-                🔎
-              </button>
-              
-              <a id="analyzeLink" class="linkBtn" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true" title="Analyze on Lichess" style="flex:1 1 0;">
-                <!-- Local Lichess Logo -->
-                <img src="Lichess-White-Logo-Online-Chess-49.png" alt="Lichess" height="28" style="object-fit: contain;">
-              </a>
-          </div>
+          <button id="godModeBtn" class="linkBtn" style="flex:1;" title="Analysis Mode">
+            🔎
+          </button>
+          
+          <a id="analyzeLink" class="linkBtn" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true" title="Analyze on Lichess" style="flex:1;">
+            <!-- Local Lichess Logo -->
+            <img src="Lichess-White-Logo-Online-Chess-49.png" alt="Lichess" height="24" style="object-fit: contain;">
+          </a>
         </div>
       </div>
     </section>
@@ -625,7 +504,6 @@
       btnDraw: document.getElementById("btnDraw"),
       btnLoss: document.getElementById("btnLoss"),
       btnNew: document.getElementById("btnNew"),
-      btnPlayAgain: document.getElementById("btnPlayAgain"),
       analyze: document.getElementById("analyzeLink"),
       guessControls: document.getElementById("guessControls"),
       btnUndo: document.getElementById("btnUndo"),
@@ -765,7 +643,6 @@
     el.btnLoss.addEventListener("click", () => handleGuess(-2));
     
     el.btnNew.addEventListener("click", startNewGame);
-    el.btnPlayAgain.addEventListener("click", startNewGame);
     el.btnUndo.addEventListener("click", undoLastMove);
     
     if (el.godModeBtn) {
@@ -827,6 +704,10 @@
             
             if (chess.history().length === 0) {
                  el.btnUndo.classList.add("hidden");
+                 el.btnUndo.style.display = 'none';
+            } else {
+                 el.btnUndo.classList.remove("hidden");
+                 el.btnUndo.style.display = '';
             }
         } catch(e) { console.error(e); }
     }
@@ -948,7 +829,6 @@
         clearArrows();
         selectSquare(null);
         setGuessEnabled(false);
-        if(el.btnPlayAgain) el.btnPlayAgain.classList.add("hidden");
         el.btnWin.classList.remove("hidden");
         el.btnDraw.classList.remove("hidden");
         el.btnLoss.classList.remove("hidden");
@@ -992,6 +872,12 @@
             setGuessEnabled(true);
             gameActive = true;
             isUserTurn = true;
+            
+            // Ensure undo is hidden at start
+            if (el.btnUndo) {
+                el.btnUndo.classList.add("hidden");
+                el.btnUndo.style.display = 'none'; // Force hide
+            }
 
         } catch (e) {
             console.error(e);
@@ -1069,13 +955,31 @@
 
                  
 
-                 // Update Undo visibility
+                              // Update Undo visibility
 
-                 if (el.btnUndo && chess.history().length > 0) el.btnUndo.classList.remove("hidden");
+                 
 
-    
+                              if (el.btnUndo && chess.history().length > 0) {
 
-                 try {
+                 
+
+                                  el.btnUndo.classList.remove("hidden");
+
+                 
+
+                                  el.btnUndo.style.display = ''; // Clear inline style
+
+                 
+
+                              }
+
+                 
+
+                 
+
+                 
+
+                              try {
 
                     currentTbData = await fetchTablebase(currentFen);
 
@@ -1191,13 +1095,31 @@
 
                 
 
-                if (failed) {
+                                if (failed) {
 
-                    endGame(false, msg);
+                
 
-                    if (el.btnUndo) el.btnUndo.classList.remove("hidden");
+                                    endGame(false, msg);
 
-                    // Revert board to show? No, keep it.
+                
+
+                                    if (el.btnUndo) {
+
+                
+
+                                        el.btnUndo.classList.remove("hidden");
+
+                
+
+                                        el.btnUndo.style.display = '';
+
+                
+
+                                    }
+
+                
+
+                                    // Revert board to show? No, keep it.
 
                     return;
 
@@ -1305,13 +1227,23 @@
 
                     
 
-                    if (el.btnUndo && chess.history().length > 0) {
+                                    if (el.btnUndo && chess.history().length > 0) {
 
-                        el.btnUndo.classList.remove("hidden");
+                    
 
-                    }
+                                        el.btnUndo.classList.remove("hidden");
 
-                    // updateLinks removed
+                    
+
+                                        el.btnUndo.style.display = '';
+
+                    
+
+                                    }
+
+                    
+
+                                    // updateLinks removed
 
                 } else {
 
