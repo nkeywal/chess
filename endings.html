@@ -102,41 +102,37 @@
     }
 
     .boardCard {
-      padding: 0; /* Removed padding for full-bleed board */
+      padding: 0;
       display: grid;
       place-items: center;
-      border: none; /* Optional: remove card border if desired, but padding=0 usually fixes the 'frame' look */
-      background: transparent; /* Remove card background so only board shows */
+      border: none;
+      background: transparent;
       box-shadow: none;
     }
 
-    /* Force hide cm-chessboard border if JS setting fails */
     .cm-chessboard .border { 
-        display: none !important; 
-        stroke: none !important;
+      display: none !important; 
+      stroke: none !important;
     }
 
-    /* Promotion Dialog visibility fix */
     .cm-chessboard-promotion-dialog {
-        background: white !important;
-        border-radius: 8px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      background: white !important;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
     
-    /* Target SVG background rect if present */
     .promotion-dialog-group rect, 
     .cm-chessboard-content .promotion-dialog-group rect {
-        fill: white !important;
-        stroke: #999 !important;
+      fill: white !important;
+      stroke: #999 !important;
     }
     
-    /* Ensure context menu style dialogs are also white */
     div[class*="promotion-dialog"] {
-        background-color: white !important;
+      background-color: white !important;
     }
 
     .cm-chessboard-promotion-dialog .promotion-piece {
-        cursor: pointer;
+      cursor: pointer;
     }
 
     .boardSizer {
@@ -162,19 +158,21 @@
     .status {
       padding: 12px 14px;
       border-radius: 14px;
-      border: none; /* Removed border */
-      background: transparent; /* Removed background */
-      color: #e7eefc; /* Matched to title color */
+      border: none;
+      background: transparent;
+      color: #e7eefc;
       font-size: 14px;
       line-height: 1.35;
       white-space: pre-wrap;
       text-align: center;
       min-height: 3em;
-      display: flex; align-items: center; justify-content: center;
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
     }
-    .status.ok   { border-color: rgba(46, 204, 113, 0.35); color: rgba(46, 204, 113, 0.95); }
-    .status.bad  { border-color: rgba(255, 92, 92, 0.35); color: rgba(255, 92, 92, 0.95); }
-    .status.warn { border-color: rgba(255, 204, 102, 0.35); color: rgba(255, 204, 102, 0.95); }
+    .status.ok   { color: rgba(46, 204, 113, 0.95); }
+    .status.bad  { color: rgba(255, 92, 92, 0.95); }
+    .status.warn { color: rgba(255, 204, 102, 0.95); }
 
     .btnRow {
       display: grid;
@@ -190,8 +188,8 @@
 
     button, a.linkBtn {
       appearance: none;
-      border: 1px solid rgba(255,255,255,0.3); /* Subtle border */
-      background: transparent; /* No solid background */
+      border: 1px solid rgba(255,255,255,0.3);
+      background: transparent;
       color: var(--text);
       padding: 10px 12px;
       border-radius: 14px;
@@ -209,8 +207,8 @@
       font-size: 0.95rem;
     }
     button:hover, a.linkBtn:hover { 
-        background: rgba(255,255,255,0.08); 
-        border-color: rgba(255,255,255,0.5);
+      background: rgba(255,255,255,0.08); 
+      border-color: rgba(255,255,255,0.5);
     }
     button:active, a.linkBtn:active { transform: translateY(1px); }
     button:disabled, a.linkBtn[aria-disabled="true"] {
@@ -221,14 +219,14 @@
     .hidden { display: none !important; }
 
     #btnNew {
-        font-weight: normal;
-        background: #3b82f6 !important;
-        color: #ffffff !important;
-        border: none !important;
+      font-weight: normal;
+      background: #3b82f6 !important;
+      color: #ffffff !important;
+      border: none !important;
     }
 
     button:hover#btnNew {
-        background: #2563eb !important; /* Slightly darker on hover */
+      background: #2563eb !important;
     }
 
     .btn-win { background: var(--color-win) !important; color: #e7eefc !important; }
@@ -237,25 +235,23 @@
     .btn-win:hover, .btn-draw:hover, .btn-loss:hover { filter: brightness(1.1); }
 
     .marker-source {
-        fill: rgba(20, 85, 30, 0.5) !important; /* Lichess-style greenish background */
-        stroke: none;
-        pointer-events: none;
+      fill: rgba(20, 85, 30, 0.5) !important;
+      stroke: none;
+      pointer-events: none;
     }
 
     .marker-dest {
-        fill: rgba(20, 85, 30, 0.7) !important; /* Lichess-style green dots, 70% opacity */
-        stroke: none;
-        pointer-events: none;
+      fill: rgba(20, 85, 30, 0.7) !important;
+      stroke: none;
+      pointer-events: none;
     }
 
-    /* Analysis Mode Markers (Flashy) */
+    /* Analysis Mode Markers */
     .marker-god-win { fill: var(--color-win-best); opacity: 0.7; pointer-events: none; }
     .marker-god-win-best { fill: var(--color-win-best); opacity: 0.7; pointer-events: none; }
     .marker-god-draw { fill: var(--color-draw); opacity: 0.7; pointer-events: none; }
     .marker-god-loss { fill: var(--color-loss); opacity: 0.7; pointer-events: none; }
 
-    /* Ensure markers are on top of pieces */
-    /* Marker overlay (above pieces) */
     #markerOverlay {
       position: absolute;
       inset: 0;
@@ -272,74 +268,64 @@
     }
 
     #board svg .marker-dot {
-        z-index: 10;
-        pointer-events: none;
+      z-index: 10;
+      pointer-events: none;
     }
     
     #board svg .marker-square {
-        z-index: 1;
-        pointer-events: none;
+      z-index: 1;
+      pointer-events: none;
     }
 
-    /* Link lines to custom markers defined in HTML */
     .arrow-win line, .arrow-win path { 
-        stroke: var(--color-win) !important; 
-        stroke-width: 6px !important;
-        marker-end: url(#arrowHeadWin) !important;
-        fill: none !important;
+      stroke: var(--color-win) !important; 
+      stroke-width: 6px !important;
+      marker-end: url(#arrowHeadWin) !important;
+      fill: none !important;
     }
     
     .arrow-win-best line, .arrow-win-best path { 
-        stroke: var(--color-win-best) !important; 
-        stroke-width: 6px !important;
-        marker-end: url(#arrowHeadWinBest) !important;
-        fill: none !important;
+      stroke: var(--color-win-best) !important; 
+      stroke-width: 6px !important;
+      marker-end: url(#arrowHeadWinBest) !important;
+      fill: none !important;
     }
 
     .arrow-draw line, .arrow-draw path { 
-        stroke: var(--color-draw) !important; 
-        stroke-width: 6px !important;
-        marker-end: url(#arrowHeadDraw) !important;
-        fill: none !important;
+      stroke: var(--color-draw) !important; 
+      stroke-width: 6px !important;
+      marker-end: url(#arrowHeadDraw) !important;
+      fill: none !important;
     }
 
     .arrow-loss line, .arrow-loss path { 
-        stroke: var(--color-loss) !important; 
-        stroke-width: 6px !important;
-        marker-end: url(#arrowHeadLoss) !important;
-        fill: none !important;
+      stroke: var(--color-loss) !important; 
+      stroke-width: 6px !important;
+      marker-end: url(#arrowHeadLoss) !important;
+      fill: none !important;
     }
 
-    /* Common visual finish */
     .arrow-win, .arrow-draw, .arrow-loss, .arrow-win-best {
-        opacity: 0.9;
-        filter: drop-shadow(0 0 4px rgba(0,0,0,0.5));
+      opacity: 0.9;
+      filter: drop-shadow(0 0 4px rgba(0,0,0,0.5));
     }
     
-    /* Ensure the lines have round caps */
     .arrow-win line, .arrow-draw line, .arrow-loss line, .arrow-win-best line {
-        stroke-linecap: round;
+      stroke-linecap: round;
     }
 
-    /* Remove old marker styling attempts */
-
-    /* Analysis Mode Toggle styling */
     #godModeBtn {
-        /* Matches standard button style (linkBtn) */
-        color: #ffffff; /* Always use white for the icon */
-        font-size: 1.2rem;
+      color: #ffffff;
+      font-size: 1.2rem;
     }
 
-    /* Fix mobile vertical jump by overriding body alignment at the end of cascade */
     @media (max-width: 900px) {
       body { place-items: start center; }
     }
-
   </style>
 </head>
 
 <body>
-  <!-- Custom SVG Markers for Arrows -->
   <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
     <defs>
       <marker id="arrowHeadWin" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -370,35 +356,30 @@
       </div>
 
       <div class="sideCard">
-        
         <div style="display:flex; justify-content:space-between; align-items:center; gap: 10px; padding: 4px 0;">
-             <!-- Styled Dropdown Container -->
-             <div style="position:relative; display:inline-flex; align-items:center; cursor:pointer;">
-                 <select id="endgameSelect" style="appearance:none; -webkit-appearance:none; background:transparent; border:none; color:#FFFFFF; font-size:1.4rem; cursor:pointer; padding-right:20px; outline:none; font-family:inherit;">
-                     <option value="KP_K" style="background:var(--bg);">♚♟ vs ♔</option>
-                     <option value="K_KP" style="background:var(--bg);">♚ vs ♔♙</option>
-                     <option value="KP_KR" style="background:var(--bg);">♚♟ vs ♔♖</option>
-                     <option value="KR_KP" style="background:var(--bg);">♚♜ vs ♔♙</option>
-                     <option value="KRP_KR" style="background:var(--bg);">♚♜♟ vs ♔♖</option>
-                     <option value="KR_KRP" style="background:var(--bg);">♚♜ vs ♔♖♙</option>
-                     <option value="KBP_KB" style="background:var(--bg);">♚♝♟ vs ♔♗</option>
-                 </select>
-                 <!-- Chevron Icon -->
-                 <span style="position:absolute; right:0; pointer-events:none; color:#FFFFFF; font-size:0.8rem; margin-top:2px;">▾</span>
-             </div>
-
-             <div class="streak-card" style="white-space:nowrap; padding: 10px 0; border:none; background:transparent; font-size:14px; display:flex; align-items:center; justify-content:center;">
-                Streak: <strong id="streak" style="margin-left:5px; font-size: 1.1rem;">0</strong>
-             </div>
+          <div style="position:relative; display:inline-flex; align-items:center; cursor:pointer;">
+            <select id="endgameSelect" style="appearance:none; -webkit-appearance:none; background:transparent; border:none; color:#FFFFFF; font-size:1.4rem; cursor:pointer; padding-right:20px; outline:none; font-family:inherit;">
+              <option value="KP_K" style="background:var(--bg);">♚♟ vs ♔</option>
+              <option value="K_KP" style="background:var(--bg);">♚ vs ♔♙</option>
+              <option value="KP_KR" style="background:var(--bg);">♚♟ vs ♔♖</option>
+              <option value="KR_KP" style="background:var(--bg);">♚♜ vs ♔♙</option>
+              <option value="KRP_KR" style="background:var(--bg);">♚♜♟ vs ♔♖</option>
+              <option value="KR_KRP" style="background:var(--bg);">♚♜ vs ♔♖♙</option>
+              <option value="KBP_KB" style="background:var(--bg);">♚♝♟ vs ♔♗</option>
+            </select>
+            <span style="position:absolute; right:0; pointer-events:none; color:#FFFFFF; font-size:0.8rem; margin-top:2px;">▾</span>
+          </div>
+          <div class="streak-card" style="white-space:nowrap; padding: 10px 0; border:none; background:transparent; font-size:14px; display:flex; align-items:center; justify-content:center;">
+            Streak: <strong id="streak" style="margin-left:5px; font-size: 1.1rem;">0</strong>
+          </div>
         </div>
 
         <div style="display:flex; gap:10px; align-items:stretch;">
-            <div id="status" class="status" style="flex-grow:1;">Setting up the board...</div>
-            
-            <button id="btnUndo" class="hidden" style="width: 50px; padding:0; font-size:1.5rem; border-radius:14px;" title="Undo last move">↺</button>
+          <div id="status" class="status" style="flex-grow:1;">Setting up the board...</div>
+          <button id="btnUndo" class="hidden" style="width: 50px; padding:0; font-size:1.5rem; border-radius:14px;" title="Undo last move">↺</button>
         </div>
 
-        <div class="btnRow" id="guessControls" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; align-items:center;">
+        <div class="btnRow" id="guessControls">
           <button class="btn-win" id="btnWin">Win</button>
           <button class="btn-draw" id="btnDraw">Draw</button>
           <button class="btn-loss" id="btnLoss">Loss</button>
@@ -416,7 +397,6 @@
               <path d="M9 12h6" />
             </svg>
           </button>
-          
           <button id="godModeBtn" class="linkBtn" style="flex:1;" title="Analysis Mode">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8" />
@@ -426,9 +406,7 @@
               <line x1="11" y1="8" x2="11" y2="14" />
             </svg>
           </button>
-          
           <a id="analyzeLink" class="linkBtn" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true" title="Analyze on Lichess" style="flex:1;">
-            <!-- Local Lichess Logo -->
             <img src="Lichess-White-Logo-Online-Chess-49.png" alt="Lichess" height="24" style="object-fit: contain;">
           </a>
         </div>
@@ -437,191 +415,158 @@
   </div>
 
   <script type="module">
-    // Debug helper
-    window.onerror = function(msg, url, line, col, error) {
-       document.getElementById("status").textContent = "JS Error: " + msg;
-       document.getElementById("status").className = "status bad";
-    };
-
     import { Chessboard, COLOR, BORDER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/Chessboard.js";
     import { Arrows, ARROW_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/extensions/arrows/Arrows.js";
     import { PromotionDialog } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/extensions/promotion-dialog/PromotionDialog.js";
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.7/+esm";
 
-
-
-    // Overlay markers rendered above pieces (independent from cm-chessboard Markers extension)
     class OverlayMarkers {
-        constructor(chessboard, containerEl) {
-            this.chessboard = chessboard;
-            this.containerEl = containerEl;
-            this.keyToNodes = new Map(); // key -> {shape, text}
+      constructor(chessboard, containerEl) {
+        this.chessboard = chessboard;
+        this.containerEl = containerEl;
+        this.keyToNodes = new Map();
 
-            // Ensure the container is a positioning context
-            try {
-                const cs = window.getComputedStyle(this.containerEl);
-                if (cs.position === 'static') this.containerEl.style.position = 'relative';
-            } catch (e) {
-                // No-op
-            }
+        try {
+          const cs = window.getComputedStyle(this.containerEl);
+          if (cs.position === 'static') this.containerEl.style.position = 'relative';
+        } catch (e) {}
 
-            // Create overlay SVG
-            this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-            this.svg.setAttribute("id", "markerOverlay");
-            this.svg.setAttribute("aria-hidden", "true");
-            this.svg.style.position = "absolute";
-            this.svg.style.inset = "0";
-            this.svg.style.width = "100%";
-            this.svg.style.height = "100%";
-            this.svg.style.pointerEvents = "none";
-            this.svg.style.zIndex = "60";
-            this.svg.style.overflow = "visible";
+        this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        this.svg.setAttribute("id", "markerOverlay");
+        this.svg.setAttribute("aria-hidden", "true");
+        this.svg.style.position = "absolute";
+        this.svg.style.inset = "0";
+        this.svg.style.width = "100%";
+        this.svg.style.height = "100%";
+        this.svg.style.pointerEvents = "none";
+        this.svg.style.zIndex = "60";
+        this.svg.style.overflow = "visible";
 
-            this.gMarkers = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            this.gText = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            this.svg.appendChild(this.gMarkers);
-            this.svg.appendChild(this.gText);
-            this.containerEl.appendChild(this.svg);
+        this.gMarkers = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        this.gText = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        this.svg.appendChild(this.gMarkers);
+        this.svg.appendChild(this.gText);
+        this.containerEl.appendChild(this.svg);
 
-            // Keep overlay synced with the main board SVG viewBox
-            this._mo = new MutationObserver(() => this.sync());
-            this._startObservers();
-            window.addEventListener('resize', () => this.sync(), { passive: true });
+        this._mo = new MutationObserver(() => this.sync());
+        this._startObservers();
+        window.addEventListener('resize', () => this.sync(), { passive: true });
+        this.sync();
+        requestAnimationFrame(() => this.sync());
+      }
 
-            // Initial sync (some browsers create the internal SVG asynchronously)
-            this.sync();
-            requestAnimationFrame(() => this.sync());
+      _startObservers() {
+        const tryAttach = () => {
+          const mainSvg = this.chessboard?.view?.svg;
+          if (mainSvg) {
+            this._mo.observe(mainSvg, { attributes: true, attributeFilter: ['viewBox', 'width', 'height', 'preserveAspectRatio'] });
+            return true;
+          }
+          return false;
+        };
+        if (!tryAttach()) {
+          let tries = 0;
+          const tick = () => {
+            tries += 1;
+            if (tryAttach() || tries > 20) return;
+            requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        }
+      }
+
+      sync() {
+        const mainSvg = this.chessboard?.view?.svg;
+        if (!mainSvg) return;
+        const vb = mainSvg.getAttribute('viewBox');
+        if (vb) this.svg.setAttribute('viewBox', vb);
+        const par = mainSvg.getAttribute('preserveAspectRatio');
+        if (par) this.svg.setAttribute('preserveAspectRatio', par);
+      }
+
+      clear() {
+        this.keyToNodes.clear();
+        while (this.gMarkers.firstChild) this.gMarkers.removeChild(this.gMarkers.firstChild);
+        while (this.gText.firstChild) this.gText.removeChild(this.gText.firstChild);
+      }
+
+      add(markerDef, square) {
+        if (!markerDef || !square) return;
+        this.sync();
+        const view = this.chessboard?.view;
+        if (!view || typeof view.squareToPoint !== 'function') return;
+
+        const point = view.squareToPoint(square);
+        const w = view.squareWidth;
+        const h = view.squareHeight;
+        const minDim = Math.min(w, h);
+        const key = `${markerDef.class || 'marker'}:${square}`;
+
+        const existing = this.keyToNodes.get(key);
+        if (existing) {
+          if (existing.shape && existing.shape.parentNode) existing.shape.parentNode.removeChild(existing.shape);
+          if (existing.text && existing.text.parentNode) existing.text.parentNode.removeChild(existing.text);
+          this.keyToNodes.delete(key);
         }
 
-        _startObservers() {
-            const tryAttach = () => {
-                const mainSvg = this.chessboard?.view?.svg;
-                if (mainSvg) {
-                    this._mo.observe(mainSvg, { attributes: true, attributeFilter: ['viewBox', 'width', 'height', 'preserveAspectRatio'] });
-                    return true;
-                }
-                return false;
-            };
-
-            if (!tryAttach()) {
-                // Retry a few frames in case the internal SVG isn't ready yet
-                let tries = 0;
-                const tick = () => {
-                    tries += 1;
-                    if (tryAttach() || tries > 20) return;
-                    requestAnimationFrame(tick);
-                };
-                requestAnimationFrame(tick);
-            }
+        const slice = String(markerDef.slice || 'markerDot');
+        let shape = null;
+        if (slice.toLowerCase().includes('square')) {
+          const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          rect.setAttribute('x', point.x);
+          rect.setAttribute('y', point.y);
+          rect.setAttribute('width', w);
+          rect.setAttribute('height', h);
+          rect.classList.add('marker-square');
+          if (markerDef.class) rect.classList.add(markerDef.class);
+          rect.style.pointerEvents = 'none';
+          shape = rect;
+        } else {
+          const cx = point.x + w / 2;
+          const cy = point.y + h / 2;
+          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          circle.setAttribute('cx', cx);
+          circle.setAttribute('cy', cy);
+          circle.setAttribute('r', minDim * 0.23);
+          circle.classList.add('marker-dot');
+          if (markerDef.class) circle.classList.add(markerDef.class);
+          circle.style.pointerEvents = 'none';
+          shape = circle;
         }
+        this.gMarkers.appendChild(shape);
 
-        sync() {
-            const mainSvg = this.chessboard?.view?.svg;
-            if (!mainSvg) return;
-
-            const vb = mainSvg.getAttribute('viewBox');
-            if (vb) this.svg.setAttribute('viewBox', vb);
-
-            const par = mainSvg.getAttribute('preserveAspectRatio');
-            if (par) this.svg.setAttribute('preserveAspectRatio', par);
+        let textEl = null;
+        const dtm = markerDef.dtm;
+        if (Number.isFinite(dtm) && dtm !== 0) {
+          const cx = point.x + w / 2;
+          const cy = point.y + h / 2;
+          textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          textEl.setAttribute('x', cx);
+          textEl.setAttribute('y', cy);
+          textEl.setAttribute('text-anchor', 'middle');
+          textEl.setAttribute('dominant-baseline', 'central');
+          textEl.setAttribute('class', 'marker-dtm-text');
+          textEl.textContent = String(dtm);
+          textEl.style.pointerEvents = 'none';
+          textEl.style.fontFamily = 'ui-sans-serif, system-ui, sans-serif';
+          textEl.style.fontWeight = '900';
+          textEl.style.fontSize = (minDim * 0.23) + 'px';
+          textEl.style.fill = '#ffffff';
+          textEl.style.stroke = '#000000';
+          textEl.style.strokeWidth = (minDim * 0.055) + 'px';
+          textEl.style.paintOrder = 'stroke';
+          this.gText.appendChild(textEl);
         }
-
-        clear() {
-            this.keyToNodes.clear();
-            while (this.gMarkers.firstChild) this.gMarkers.removeChild(this.gMarkers.firstChild);
-            while (this.gText.firstChild) this.gText.removeChild(this.gText.firstChild);
-        }
-
-        add(markerDef, square) {
-            if (!markerDef || !square) return;
-            this.sync();
-
-            const view = this.chessboard?.view;
-            if (!view || typeof view.squareToPoint !== 'function') return;
-
-            const point = view.squareToPoint(square);
-            const w = view.squareWidth;
-            const h = view.squareHeight;
-            const minDim = Math.min(w, h);
-
-            const key = `${markerDef.class || 'marker'}:${square}`;
-
-            // Replace if already present
-            const existing = this.keyToNodes.get(key);
-            if (existing) {
-                if (existing.shape && existing.shape.parentNode) existing.shape.parentNode.removeChild(existing.shape);
-                if (existing.text && existing.text.parentNode) existing.text.parentNode.removeChild(existing.text);
-                this.keyToNodes.delete(key);
-            }
-
-            const slice = String(markerDef.slice || 'markerDot');
-            let shape = null;
-            if (slice.toLowerCase().includes('square')) {
-                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                rect.setAttribute('x', point.x);
-                rect.setAttribute('y', point.y);
-                rect.setAttribute('width', w);
-                rect.setAttribute('height', h);
-                rect.classList.add('marker-square');
-                if (markerDef.class) rect.classList.add(markerDef.class);
-                rect.style.pointerEvents = 'none';
-                shape = rect;
-            } else {
-                const cx = point.x + w / 2;
-                const cy = point.y + h / 2;
-                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                circle.setAttribute('cx', cx);
-                circle.setAttribute('cy', cy);
-                circle.setAttribute('r', minDim * 0.23);
-                circle.classList.add('marker-dot');
-                if (markerDef.class) circle.classList.add(markerDef.class);
-                circle.style.pointerEvents = 'none';
-                shape = circle;
-            }
-
-            this.gMarkers.appendChild(shape);
-
-            // DTM label (only when dtm != 0)
-            let textEl = null;
-            const dtm = markerDef.dtm;
-            if (Number.isFinite(dtm) && dtm !== 0) {
-                const cx = point.x + w / 2;
-                const cy = point.y + h / 2;
-
-                textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                textEl.setAttribute('x', cx);
-                textEl.setAttribute('y', cy);
-                textEl.setAttribute('text-anchor', 'middle');
-                textEl.setAttribute('dominant-baseline', 'central');
-                textEl.setAttribute('class', 'marker-dtm-text');
-                textEl.textContent = String(dtm);
-
-                textEl.style.pointerEvents = 'none';
-                textEl.style.fontFamily = 'ui-sans-serif, system-ui, sans-serif';
-                textEl.style.fontWeight = '900';
-                textEl.style.fontSize = (minDim * 0.23) + 'px';
-
-                // High contrast, readable on any marker color
-                textEl.style.fill = '#ffffff';
-                textEl.style.stroke = '#000000';
-                textEl.style.strokeWidth = (minDim * 0.055) + 'px';
-                textEl.style.paintOrder = 'stroke';
-
-                this.gText.appendChild(textEl);
-            }
-
-            this.keyToNodes.set(key, { shape, text: textEl });
-        }
+        this.keyToNodes.set(key, { shape, text: textEl });
+      }
     }
 
     const MARKER_SOURCE = { class: "marker-source", slice: "markerSquare" };
     const MARKER_DEST = { class: "marker-dest", slice: "markerDot" };
-    
     const MARKER_GOD_WIN = { class: "marker-god-win", slice: "markerDot" };
     const MARKER_GOD_WIN_BEST = { class: "marker-god-win-best", slice: "markerDot" };
     const MARKER_GOD_DRAW = { class: "marker-god-draw", slice: "markerDot" };
     const MARKER_GOD_LOSS = { class: "marker-god-loss", slice: "markerDot" };
-    
     const ARROW_WIN = { ...ARROW_TYPE.default, class: "arrow-win" };
     const ARROW_WIN_BEST = { ...ARROW_TYPE.default, class: "arrow-win-best" };
     const ARROW_DRAW = { ...ARROW_TYPE.default, class: "arrow-draw" };
@@ -629,13 +574,8 @@
 
     const ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-";
     const PIECE_ORDER = "KQRBNP";
-
-    console.log("Imports loaded");
-    document.getElementById("status").textContent = "Imports loaded...";
-    
     const TABLEBASE_URL = "https://tablebase.lichess.ovh/standard?fen=";
 
-    // --- DOM Elements ---
     const el = {
       status: document.getElementById("status"),
       streak: document.getElementById("streak"),
@@ -649,7 +589,6 @@
       godModeBtn: document.getElementById("godModeBtn"),
     };
 
-    // --- State ---
     let chess = new Chess();
     let board = null;
     let currentFen = "";
@@ -661,18 +600,16 @@
     let selectedSquare = null;
     let cachedPositions = null;
     let cachedFilename = null;
-    let godMode = false;
     let analysisMode = false;
     let streakInvalidated = false;
 
     function isReallyGameOver() {
-        return chess.isCheckmate() || (chess.isDraw() && !chess.isThreefoldRepetition());
+      return chess.isCheckmate() || (chess.isDraw() && !chess.isThreefoldRepetition());
     }
 
-    // --- Init Board ---
     board = new Chessboard(document.getElementById("board"), {
       assetsUrl: "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/assets/",
-      position: "8/8/8/8/8/8/8/8", // "empty" keyword crashes, use explicit FEN
+      position: "8/8/8/8/8/8/8/8",
       orientation: COLOR.white,
       style: {
         pieces: { file: "pieces/standard.svg" },
@@ -684,1892 +621,472 @@
     const overlayMarkers = new OverlayMarkers(board, document.getElementById("board"));
 
     board.enableMoveInput((event) => {
-        if (!isUserTurn || !gameActive) return false;
-
-        switch (event.type) {
-            case "moveInputStarted":
-                const p = chess.get(event.square);
-                // In Analysis Mode, allow picking up any piece relative to turn
-                const isTurnColor = p && p.color === chess.turn();
-                const isOurPiece = p && p.color === 'w';
-                
-                if (godMode || analysisMode ? isTurnColor : isOurPiece) {
-                    if (selectedSquare === event.square) {
-                        selectSquare(null);
-                        return false; // Stop interaction on deselect
-                    } else {
-                        selectSquare(event.square);
-                        return true;
-                    }
+      if (!isUserTurn || !gameActive) return false;
+      switch (event.type) {
+        case "moveInputStarted":
+          const p = chess.get(event.square);
+          const isTurnColor = p && p.color === chess.turn();
+          const isOurPiece = p && p.color === 'w';
+          if (analysisMode ? isTurnColor : isOurPiece) {
+            if (selectedSquare === event.square) {
+              selectSquare(null);
+              return false;
+            } else {
+              selectSquare(event.square);
+              return true;
+            }
+          }
+          return false;
+        case "validateMoveInput":
+          if (!gameActive && !analysisMode) return false;
+          try {
+            const temp = new Chess(chess.fen());
+            const piece = temp.get(event.squareFrom);
+            const isPawn = piece && piece.type === 'p';
+            const targetRank = event.squareTo[1];
+            const isPromo = isPawn && (targetRank === '1' || targetRank === '8');
+            if (isPromo) {
+              const m = temp.move({ from: event.squareFrom, to: event.squareTo, promotion: 'q' });
+              return !!m;
+            }
+            const m = temp.move({ from: event.squareFrom, to: event.squareTo, promotion: 'q' });
+            return !!m;
+          } catch (e) { return false; }
+        case "moveInputFinished":
+          setTimeout(() => selectSquare(null), 10);
+          const temp = new Chess(chess.fen());
+          const sqFrom = event.squareFrom;
+          const sqTo = event.squareTo;
+          const piece = temp.get(sqFrom);
+          const isPawn = piece && piece.type === 'p';
+          const targetRank = sqTo[1];
+          const isPromo = isPawn && (targetRank === '1' || targetRank === '8');
+          if (event.legalMove) {
+            if (isPromo) {
+              const side = piece.color === 'w' ? COLOR.white : COLOR.black;
+              board.showPromotionDialog(sqTo, side, (result) => {
+                if (result && result.piece) {
+                  const promoChar = result.piece[1].toLowerCase();
+                  handleUserMove(sqFrom, sqTo, promoChar).then(success => {
+                    if (success) board.setPosition(chess.fen(), true);
+                    else board.setPosition(chess.fen(), true);
+                  });
+                } else {
+                  board.setPosition(chess.fen(), true);
                 }
-                return false;
-                
-            case "validateMoveInput":
-                if (!gameActive && !godMode && !analysisMode) return false;
-                try {
-                    const temp = new Chess(chess.fen());
-                    // Check if move is legal (ignoring promotion for now to check basic validity)
-                    // We need to check if promotion is needed
-                    const piece = temp.get(event.squareFrom);
-                    const isPawn = piece && piece.type === 'p';
-                    const targetRank = event.squareTo[1];
-                    const isPromo = isPawn && (targetRank === '1' || targetRank === '8');
-                    
-                    if (isPromo) {
-                        // Check if move is valid with 'q' promotion (just to validate geometry)
-                        const m = temp.move({ from: event.squareFrom, to: event.squareTo, promotion: 'q' });
-                        if (m) {
-                            // Show dialog
-                            // We return true to allow the piece to snap to the square, 
-                            // then we'll handle the actual logic in moveInputFinished?
-                            // No, cm-chessboard PromotionDialog usually works by returning true then callback?
-                            // Actually, standard pattern is: return true, then use showPromotionDialog.
-                            return true; 
-                        }
-                        return false;
-                    }
-                    
-                    const m = temp.move({ from: event.squareFrom, to: event.squareTo, promotion: 'q' });
-                    return !!m;
-                } catch (e) { return false; }
-                
-            case "moveInputFinished":
-                // Defer clearing to ensure it happens after any internal event handling
-                setTimeout(() => selectSquare(null), 10);
-                
-                // Check for promotion
-                const temp = new Chess(chess.fen());
-                const sqFrom = event.squareFrom;
-                const sqTo = event.squareTo;
-                const piece = temp.get(sqFrom);
-                const isPawn = piece && piece.type === 'p';
-                const targetRank = sqTo[1];
-                const isPromo = isPawn && (targetRank === '1' || targetRank === '8');
-
-                if (event.legalMove) {
-                    if (isPromo) {
-                        // Show dialog
-                        const side = piece.color === 'w' ? COLOR.white : COLOR.black;
-                        board.showPromotionDialog(sqTo, side, (result) => {
-                            if (result && result.piece) {
-                                // Result piece name e.g. "wq", "wr", "bq" -> char 'q', 'r'
-                                const promoChar = result.piece[1].toLowerCase();
-                                // Execute move logic first (updates chess.js state)
-                                handleUserMove(sqFrom, sqTo, promoChar).then(success => {
-                                    if (success) {
-                                        board.setPosition(chess.fen(), true);
-                                    } else {
-                                        console.error("Promotion move failed logic.");
-                                        board.setPosition(chess.fen(), true);
-                                    }
-                                });
-                            } else {
-                                // Cancelled
-                                board.setPosition(chess.fen(), true);
-                            }
-                        });
-                        return true; // Let piece drop visually
-                    } else {
-                        void handleUserMove(sqFrom, sqTo).catch(console.error);
-                    }
-                }
-                return true;
-        }
+              });
+              return true;
+            } else {
+              void handleUserMove(sqFrom, sqTo).catch(console.error);
+            }
+          }
+          return true;
+      }
     });
 
-    // --- Event Listeners ---
-    el.btnWin.addEventListener("click", () => handleGuess(2)); // Win for White
+    el.btnWin.addEventListener("click", () => handleGuess(2));
     el.btnDraw.addEventListener("click", () => handleGuess(0));
     el.btnLoss.addEventListener("click", () => handleGuess(-2));
-    
     el.btnNew.addEventListener("click", startNewGame);
     el.btnUndo.addEventListener("click", undoLastMove);
-    
+
     if (el.godModeBtn) {
-        el.godModeBtn.addEventListener("click", async () => {
-            if (godMode) return; // Cannot turn OFF via this button as per request
-            
-            godMode = true;
-            el.godModeBtn.classList.add("active");
-            
-            // Clear selection/markers on toggle to prevent stale state
-            selectSquare(null);
-            clearArrows();
-
-            setStatus("warn", "Loading analysis...");
-
-            try {
-                // Fetch fresh data for current position (essential if game ended on blunder)
-                currentFen = chess.fen();
-                currentTbData = await fetchTablebase(currentFen);
-
-                gameActive = true; // Ensure movement is allowed
-                isUserTurn = true; // Ensure user can move immediately
-                analysisMode = false;
-                streakInvalidated = true;
-                const turnStr = chess.turn() === 'w' ? "White" : "Black";
-                setStatus(null, `Analysis: ${turnStr} to move.`);
-                setGuessEnabled(false);
-            } catch(e) {
-                console.error(e);
-                setStatus("bad", "Error loading analysis.");
-            }
-        });
+      el.godModeBtn.addEventListener("click", async () => {
+        if (analysisMode) return;
+        analysisMode = true;
+        el.godModeBtn.classList.add("active");
+        selectSquare(null);
+        clearArrows();
+        setStatus("warn", "Loading analysis...");
+        try {
+          currentFen = chess.fen();
+          currentTbData = await fetchTablebase(currentFen);
+          gameActive = true;
+          isUserTurn = true;
+          streakInvalidated = true;
+          const turnStr = chess.turn() === 'w' ? "White" : "Black";
+          setStatus(null, `Analysis: ${turnStr} to move.`);
+          setGuessEnabled(false);
+        } catch(e) {
+          console.error(e);
+          setStatus("bad", "Error loading analysis.");
+        }
+      });
     }
 
     async function undoLastMove() {
-        // Allow undo even if gameActive is false (e.g. after blunder endGame)
-        
-        // If it's black's turn (user just played and blundered), undo 1 move.
-        // If it's white's turn (normal flow), undo 2 moves.
-        
-        if (chess.turn() === 'b') {
-             chess.undo();
+      if (chess.turn() === 'b') chess.undo();
+      else { chess.undo(); chess.undo(); }
+      currentFen = chess.fen();
+      await board.setPosition(currentFen, true);
+      try {
+        currentTbData = await fetchTablebase(currentFen);
+        gameActive = true;
+        isUserTurn = true;
+        if (analysisMode) {
+          const turnStr = chess.turn() === 'w' ? "White" : "Black";
+          setStatus(null, `Analysis: ${turnStr} to move.`);
+        } else if (!el.btnWin.disabled) {
+          const turnStr = chess.turn() === 'w' ? "White" : "Black";
+          setStatus(null, `${turnStr} to move: Evaluate or play.`);
         } else {
-             chess.undo();
-             chess.undo();
+          setStatus(null, "");
         }
-
-        currentFen = chess.fen();
-        await board.setPosition(currentFen, true);
-        
-        // Refresh TB Data
-        try {
-            currentTbData = await fetchTablebase(currentFen);
-            
-            // Re-evaluate state
-            gameActive = true; // Reactivate game
-            isUserTurn = true;
-            
-            if (godMode || analysisMode) {
-                const turnStr = chess.turn() === 'w' ? "White" : "Black";
-                setStatus(null, `Analysis: ${turnStr} to move.`);
-            } else if (!el.btnWin.disabled) {
-                const turnStr = chess.turn() === 'w' ? "White" : "Black";
-                setStatus(null, `${turnStr} to move: Evaluate or play.`);
-            } else {
-                setStatus(null, "");
-            }
-            
-            clearArrows();
-            
-            if (chess.history().length === 0) {
-                 el.btnUndo.classList.add("hidden");
-                 el.btnUndo.style.display = 'none';
-                 if (!godMode && !analysisMode) {
-                     setGuessEnabled(true);
-                 }
-            } else {
-                 el.btnUndo.classList.remove("hidden");
-                 el.btnUndo.style.display = '';
-            }
-        } catch(e) { console.error(e); }
+        clearArrows();
+        if (chess.history().length === 0) {
+          el.btnUndo.classList.add("hidden");
+          el.btnUndo.style.display = 'none';
+          if (!analysisMode) setGuessEnabled(true);
+        } else {
+          el.btnUndo.classList.remove("hidden");
+          el.btnUndo.style.display = '';
+        }
+      } catch(e) { console.error(e); }
     }
 
     function selectSquare(sq) {
-        clearArrows(); // Clear arrows on selection
-        overlayMarkers.clear(); // Clear all overlay markers (source, dest, analysis, etc.)
-        
-        selectedSquare = sq;
-        if (selectedSquare) {
-            // Add Source Marker
-            overlayMarkers.add(MARKER_SOURCE, selectedSquare);
-            
-            if (godMode && currentTbData && currentTbData.moves) {
-                // Analysis Mode: Use TB data to color destinations
-                // Filter moves starting from selectedSquare
-                const moves = currentTbData.moves.filter(m => m.uci.startsWith(selectedSquare));
-                
-                // Find best DTM among these winning moves
-                let bestDtmForSquare = Infinity;
-                const winningMoves = moves.filter(m => categoryToWdl(m.category) === -2);
-                winningMoves.forEach(m => {
-                    if (m.dtm !== undefined && m.dtm !== null) {
-                        const dist = Math.abs(m.dtm);
-                        if (dist < bestDtmForSquare) bestDtmForSquare = dist;
-                    }
-                });
-
-                // Aggregate by destination to handle promotions (pick best outcome)
-                // Maps dest -> {wdl, dtm}
-                const destMap = new Map();
-                
-                moves.forEach(m => {
-                    const dest = m.uci.slice(2, 4);
-                    const wdl = categoryToWdl(m.category); // 2, 0, -2
-                    const dtm = m.dtm !== undefined && m.dtm !== null ? Math.abs(m.dtm) : Infinity;
-                    
-                    if (!destMap.has(dest)) {
-                        destMap.set(dest, {wdl, dtm});
-                    } else {
-                        const current = destMap.get(dest);
-                        // Pick best WDL first
-                        if (wdl < current.wdl) {
-                            destMap.set(dest, {wdl, dtm});
-                        } else if (wdl === current.wdl && dtm < current.dtm) {
-                            // If same WDL, pick best DTM
-                            destMap.set(dest, {wdl, dtm});
-                        }
-                    }
-                });
-                
-                destMap.forEach((data, dest) => {
-                    let markerDef = MARKER_GOD_DRAW;
-                    if (data.wdl === -2) {
-                        markerDef = (data.dtm <= bestDtmForSquare) ? MARKER_GOD_WIN_BEST : MARKER_GOD_WIN;
-                    }
-                    else if (data.wdl === 2) markerDef = MARKER_GOD_LOSS;
-                    
-                    // Clone and inject DTM
-                    const marker = { ...markerDef };
-                    if (data.dtm !== undefined && data.dtm !== Infinity) {
-                        marker.dtm = data.dtm;
-                    }
-                    
-                    overlayMarkers.add(marker, dest);
-                });
-                
-            } else {
-                // Standard Mode: Show valid destinations (green dots)
-                const moves = chess.moves({ square: selectedSquare, verbose: true });
-                moves.forEach(m => {
-                    overlayMarkers.add(MARKER_DEST, m.to);
-                });
+      clearArrows();
+      overlayMarkers.clear();
+      selectedSquare = sq;
+      if (selectedSquare) {
+        overlayMarkers.add(MARKER_SOURCE, selectedSquare);
+        if (analysisMode && currentTbData && currentTbData.moves) {
+          const moves = currentTbData.moves.filter(m => m.uci.startsWith(selectedSquare));
+          let bestDtmForSquare = Infinity;
+          const winningMoves = moves.filter(m => categoryToWdl(m.category) === -2);
+          winningMoves.forEach(m => {
+            if (m.dtm !== undefined && m.dtm !== null) {
+              const dist = Math.abs(m.dtm);
+              if (dist < bestDtmForSquare) bestDtmForSquare = dist;
             }
+          });
+          const destMap = new Map();
+          moves.forEach(m => {
+            const dest = m.uci.slice(2, 4);
+            const wdl = categoryToWdl(m.category);
+            const dtm = m.dtm !== undefined && m.dtm !== null ? Math.abs(m.dtm) : Infinity;
+            if (!destMap.has(dest)) destMap.set(dest, {wdl, dtm});
+            else {
+              const current = destMap.get(dest);
+              if (wdl < current.wdl) destMap.set(dest, {wdl, dtm});
+              else if (wdl === current.wdl && dtm < current.dtm) destMap.set(dest, {wdl, dtm});
+            }
+          });
+          destMap.forEach((data, dest) => {
+            let markerDef = MARKER_GOD_DRAW;
+            if (data.wdl === -2) markerDef = (data.dtm <= bestDtmForSquare) ? MARKER_GOD_WIN_BEST : MARKER_GOD_WIN;
+            else if (data.wdl === 2) markerDef = MARKER_GOD_LOSS;
+            const marker = { ...markerDef };
+            if (data.dtm !== undefined && data.dtm !== Infinity) marker.dtm = data.dtm;
+            overlayMarkers.add(marker, dest);
+          });
+        } else {
+          const moves = chess.moves({ square: selectedSquare, verbose: true });
+          moves.forEach(m => overlayMarkers.add(MARKER_DEST, m.to));
         }
+      }
     }
 
-    // --- Persistence ---
     function saveSettings() {
-        try {
-            const sel = document.getElementById("endgameSelect");
-            const val = sel.value;
-            localStorage.setItem("endgame-trainer-selection", val);
-        } catch(e) { console.warn("Could not save settings", e); }
+      try {
+        const val = document.getElementById("endgameSelect").value;
+        localStorage.setItem("endgame-trainer-selection", val);
+      } catch(e) { console.warn("Could not save settings", e); }
     }
 
     function loadSettings() {
-        try {
-            const val = localStorage.getItem("endgame-trainer-selection");
-            if (val) {
-                const sel = document.getElementById("endgameSelect");
-                if (sel) {
-                    sel.value = val;
-                }
-            }
-        } catch(e) { console.warn("Could not load settings", e); }
+      try {
+        const val = localStorage.getItem("endgame-trainer-selection");
+        if (val) {
+          const sel = document.getElementById("endgameSelect");
+          if (sel) sel.value = val;
+        }
+      } catch(e) { console.warn("Could not load settings", e); }
     }
-    
-    // Init Persistence
-    loadSettings();
-    const sel = document.getElementById('endgameSelect');
-    if(sel) sel.addEventListener('change', () => {
-        saveSettings();
-        startNewGame();
-    });
-
-    // Start
-    startNewGame();
-
-
-    // --- Core Logic ---
 
     async function startNewGame() {
-        console.log("startNewGame called");
-        gameActive = false;
-        isUserTurn = false;
-        currentTbData = null;
-        clearArrows();
-        selectSquare(null);
-        setGuessEnabled(false);
-        if(el.btnUndo) el.btnUndo.classList.add("hidden");
-        if(el.godModeBtn) {
-            el.godModeBtn.classList.remove("active");
+      gameActive = false;
+      isUserTurn = false;
+      currentTbData = null;
+      clearArrows();
+      selectSquare(null);
+      setGuessEnabled(false);
+      if(el.btnUndo) el.btnUndo.classList.add("hidden");
+      if(el.godModeBtn) el.godModeBtn.classList.remove("active");
+      analysisMode = false;
+      streakInvalidated = false;
+      setStatus("warn", "Setting up the board...");
+      try {
+        const fen = await generateValidPosition();
+        currentFen = fen;
+        initialFen = fen;
+        chess.load(fen);
+        await board.setPosition(fen, true);
+        currentTbData = await fetchTablebase(fen);
+        updateLinks(initialFen);
+        const turnStr = chess.turn() === 'w' ? "White" : "Black";
+        setStatus(null, `${turnStr} to move: Evaluate or play.`);
+        setGuessEnabled(true);
+        gameActive = true;
+        isUserTurn = true;
+        if (el.btnUndo) {
+          el.btnUndo.classList.add("hidden");
+          el.btnUndo.style.display = 'none';
         }
-        godMode = false;
-        analysisMode = false;
-        streakInvalidated = false;
-        setStatus("warn", "Setting up the board...");
-        
-        try {
-            console.log("Generating valid position...");
-            const fen = await generateValidPosition();
-            console.log("Position generated:", fen);
-            
-            currentFen = fen;
-            initialFen = fen;
-            console.log("Loading into Chess.js...");
-            try {
-                chess.load(fen);
-            } catch(loadErr) {
-                throw new Error("Chess.load failed on FEN: " + fen + " :: " + loadErr);
-            }
-            
-            console.log("Setting board position...");
-            await board.setPosition(fen, true);
-            
-            // Get initial TB data
-            console.log("Fetching TB data...");
-            currentTbData = await fetchTablebase(fen);
-            console.log("TB Data received", currentTbData);
-            
-            // Set Objective
-            // normalize wdl from category if needed handled in fetchTablebase
-            
-            updateLinks(initialFen);
-            const turnStr = chess.turn() === 'w' ? "White" : "Black";
-            setStatus(null, `${turnStr} to move: Evaluate or play.`);
-            setGuessEnabled(true);
-            gameActive = true;
-            isUserTurn = true;
-            
-            // Ensure undo is hidden at start
-            if (el.btnUndo) {
-                el.btnUndo.classList.add("hidden");
-                el.btnUndo.style.display = 'none'; // Force hide
-            }
-
-        } catch (e) {
-            console.error(e);
-            setStatus("bad", "Error: " + e.message);
-        }
+      } catch (e) {
+        console.error(e);
+        setStatus("bad", "Error: " + e.message);
+      }
     }
 
-        async function handleUserMove(from, to, promotion = 'q') {
+    async function handleUserMove(from, to, promotion = 'q') {
+      clearArrows();
+      selectSquare(null);
+      if (!gameActive) return;
+      try {
+        const moveResult = chess.move({ from, to, promotion });
+        if (!moveResult) return false;
+      } catch (err) { return false; }
+      await handleUserMovePostProcess();
+      return true;
+    }
 
-            console.log("handleUserMove called with:", from, to, promotion);
-
-            clearArrows();
-
-            selectSquare(null);
-            
-
-
-    
-
-            if (!gameActive) {
-
-                console.warn("handleUserMove aborted: gameActive is false");
-
-                return;
-
-            }
-
-    
-
-            // Move is valid (already checked by cm-chessboard)
-
-            try {
-
-                const moveResult = chess.move({ from, to, promotion });
-
-                if (!moveResult) {
-
-                    console.error("chess.move failed for:", { from, to, promotion });
-
-                    console.log("Current FEN:", chess.fen());
-
-                    console.log("Turn:", chess.turn());
-
-                    return false;
-
-                }
-
-                console.log("chess.move success:", moveResult);
-
-            } catch (err) {
-
-                console.error("chess.move threw error:", err);
-
-                return false;
-
-            }
-
-            
-
-            await handleUserMovePostProcess();
-
-            return true;
-
+    async function handleUserMovePostProcess() {
+      if (analysisMode) {
+        currentFen = chess.fen();
+        await board.setPosition(currentFen, true);
+        if (el.btnUndo && chess.history().length > 0) {
+          el.btnUndo.classList.remove("hidden");
+          el.btnUndo.style.display = '';
         }
-
-    
-
-        async function handleUserMovePostProcess() {
-
-            // Analysis Mode / Sandbox Bypass
-
-            if (godMode || analysisMode) {
-
-                 currentFen = chess.fen();
-
-                 await board.setPosition(currentFen, true); // Ensure board sync
-
-                 
-
-                              // Update Undo visibility
-
-                 
-
-                              if (el.btnUndo && chess.history().length > 0) {
-
-                 
-
-                                  el.btnUndo.classList.remove("hidden");
-
-                 
-
-                                  el.btnUndo.style.display = ''; // Clear inline style
-
-                 
-
-                              }
-
-                 
-
-                 
-
-                 
-
-                                                            try {
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                  currentTbData = await fetchTablebase(currentFen);
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                  const turnStr = chess.turn() === 'w' ? "White" : "Black";
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                  
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                  setStatus(null, `Analysis: ${turnStr} to move.`);
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                  
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                                  if (isReallyGameOver()) {
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                  
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                                      handleGameOver();
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                  
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                                  }
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                  
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                               } catch(e) { console.error(e); }
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                  
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                               isUserTurn = true; // Keep turn for user in analysis mode
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                               return true;
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                  
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                          }
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                  
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                          isUserTurn = false;
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                          setStatus("warn", "Thinking...");
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                  
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                          // Evaluate Move
-
-                 
-
-                 
-
-                 
-
-                                          if (!currentTbData || typeof currentTbData.wdl !== 'number') {
-
-                 
-
-                 
-
-                 
-
-                                              setStatus('bad', 'Internal error: missing tablebase data.');
-
-                 
-
-                 
-
-                 
-
-                                              endGame(false, 'Internal error: missing tablebase data.');
-
-                 
-
-                 
-
-                 
-
-                                              return;
-
-                 
-
-                 
-
-                 
-
-                                          }
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                          const prevWdl = currentTbData.wdl;
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                          
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                          // Fetch new data
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                          try {
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              const newFen = chess.fen();
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              console.log("Fetching response for FEN:", newFen);
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              const newData = await fetchTablebase(newFen);
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              console.log("Response received:", newData);
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              // Check blunder
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              // White moved. Now Black to move.
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              // If White was Winning (2), Black should be Losing (-2).
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              // If White was Drawing (0), Black should be Drawing (0).
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              let failed = false;
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              let msg = "";
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                  
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              if (prevWdl === 2) { // We were winning
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                   if (newData.wdl === 0) { // Drew
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                       failed = true;
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                       msg = `Slip-up! You let the win escape.`;
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                   } else if (newData.wdl === 2) { // Lost
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                       failed = true;
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                       msg = `Huge blunder! You threw away the win.`;
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                   }
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              } else if (prevWdl === 0) { // Drawing
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                   if (newData.wdl === 2) { // Opponent Winning (We lost)
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                       failed = true;
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                       msg = "Mistake. The position is now lost.";
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                                   }
-
-                 
-
-                 
-
-                 
-
-                              
-
-                 
-
-                 
-
-                 
-
-                                              }
-
-                
-
-                                if (failed) {
-
-                
-
-                                    endGame(false, msg);
-
-                
-
-                                    if (el.btnUndo) {
-
-                
-
-                                        el.btnUndo.classList.remove("hidden");
-
-                
-
-                                        el.btnUndo.style.display = '';
-
-                
-
-                                    }
-
-                
-
-                                    // Revert board to show? No, keep it.
-
-                    return;
-
-                }
-
-    
-
-                if (isReallyGameOver()) {
-
-                    handleGameOver();
-
-                    return;
-
-                }
-
-    
-
-                // Computer Reply (Best Move)
-
-                if (newData.moves && newData.moves.length > 0) {
-
-                    let bestMove = newData.moves[0];
-
-                    console.log("Computer best move (default):", bestMove.uci);
-
-    
-
-                    // Tie-break for Draw: Prefer no capture
-
-                    const bestWdl = categoryToWdl(bestMove.category);
-
-                    if (bestWdl === 0) { // If best outcome is Draw
-
-                        // Filter moves that preserve the Draw
-
-                        const drawMoves = newData.moves.filter(m => categoryToWdl(m.category) === 0);
-
-                        
-
-                        // Look for non-capture among draw moves
-
-                        // Using SAN to detect capture ('x')
-
-                        const nonCapture = drawMoves.find(m => m.san && !m.san.includes('x'));
-
-                        
-
-                        if (nonCapture) {
-
-                            console.log("Switched to non-capture draw move:", nonCapture.uci);
-
-                            bestMove = nonCapture;
-
-                        }
-
-                    }
-
-    
-
-                    const uci = bestMove.uci;
-
-                    const fromC = uci.slice(0, 2);
-
-                    const toC = uci.slice(2, 4);
-
-                    const promoC = uci.length > 4 ? uci[4] : undefined; // e.g. "a7a8q" -> 'q'
-
-                    
-
-                    chess.move({ from: fromC, to: toC, promotion: promoC || 'q' });
-
-                    await board.setPosition(chess.fen(), true);
-
-                    
-
-                    if (isReallyGameOver()) {
-
-                        handleGameOver();
-
-                        return;
-
-                    }
-
-                    
-
-                    // Update state
-
-                    currentFen = chess.fen();
-
-                    currentTbData = await fetchTablebase(currentFen);
-
-                    
-
-                                        
-
-                    
-
-                                        isUserTurn = true;
-
-                    
-
-                                        if (!godMode && !analysisMode) {
-
-                                            setGuessEnabled(true);
-
-                                            const turnStr = chess.turn() === 'w' ? "White" : "Black";
-
-                                            setStatus(null, `${turnStr} to move: Evaluate or play.`);
-
-                                        } else {
-
-                                            setStatus(null, "");
-
-                                        }
-
-                    
-
-                                    if (el.btnUndo && chess.history().length > 0) {
-
-                    
-
-                                        el.btnUndo.classList.remove("hidden");
-
-                    
-
-                                        el.btnUndo.style.display = '';
-
-                    
-
-                                    }
-
-                    
-
-                                    // updateLinks removed
-
-                } else {
-
-                    handleGameOver();
-
-                }
-
-    
-
-            } catch (e) {
-
-                setStatus("bad", "Error: " + e.message);
-
-            }
-
+        try {
+          currentTbData = await fetchTablebase(currentFen);
+          const turnStr = chess.turn() === 'w' ? "White" : "Black";
+          setStatus(null, `Analysis: ${turnStr} to move.`);
+          if (isReallyGameOver()) handleGameOver();
+        } catch(e) { console.error(e); }
+        isUserTurn = true;
+        return true;
+      }
+
+      isUserTurn = false;
+      setStatus("warn", "Thinking...");
+      if (!currentTbData || typeof currentTbData.wdl !== 'number') {
+        setStatus('bad', 'Internal error: missing tablebase data.');
+        endGame(false, 'Internal error: missing tablebase data.');
+        return;
+      }
+      const prevWdl = currentTbData.wdl;
+      try {
+        const newFen = chess.fen();
+        const newData = await fetchTablebase(newFen);
+        let failed = false;
+        let msg = "";
+        if (prevWdl === 2) {
+          if (newData.wdl === 0) { failed = true; msg = `Slip-up! You let the win escape.`; }
+          else if (newData.wdl === 2) { failed = true; msg = `Huge blunder! You threw away the win.`; }
+        } else if (prevWdl === 0) {
+          if (newData.wdl === 2) { failed = true; msg = "Mistake. The position is now lost."; }
         }
+        if (failed) {
+          endGame(false, msg);
+          if (el.btnUndo) {
+            el.btnUndo.classList.remove("hidden");
+            el.btnUndo.style.display = '';
+          }
+          return;
+        }
+        if (isReallyGameOver()) { handleGameOver(); return; }
+        if (newData.moves && newData.moves.length > 0) {
+          let bestMove = newData.moves[0];
+          const bestWdl = categoryToWdl(bestMove.category);
+          if (bestWdl === 0) {
+            const drawMoves = newData.moves.filter(m => categoryToWdl(m.category) === 0);
+            const nonCapture = drawMoves.find(m => m.san && !m.san.includes('x'));
+            if (nonCapture) bestMove = nonCapture;
+          }
+          const uci = bestMove.uci;
+          const promoC = uci.length > 4 ? uci[4] : undefined;
+          chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: promoC || 'q' });
+          await board.setPosition(chess.fen(), true);
+          if (isReallyGameOver()) { handleGameOver(); return; }
+          currentFen = chess.fen();
+          currentTbData = await fetchTablebase(currentFen);
+          isUserTurn = true;
+          if (!analysisMode) {
+            setGuessEnabled(true);
+            const turnStr = chess.turn() === 'w' ? "White" : "Black";
+            setStatus(null, `${turnStr} to move: Evaluate or play.`);
+          } else setStatus(null, "");
+          if (el.btnUndo && chess.history().length > 0) {
+            el.btnUndo.classList.remove("hidden");
+            el.btnUndo.style.display = '';
+          }
+        } else handleGameOver();
+      } catch (e) { setStatus("bad", "Error: " + e.message); }
+    }
 
     function handleGuess(guessWdl) {
-        if (!gameActive) return;
-        drawOutcomeArrows(currentTbData);
-        
-        const actualWdl = currentTbData.wdl;
-        
-        let correct = (guessWdl === actualWdl);
-        
-        if (correct) {
-            if (!streakInvalidated) {
-                streak++;
-                updateStreak();
-            }
-            setStatus("ok", `Spot on! This is indeed a ${wdlToString(actualWdl)}.`);
-        } else {
-            streak = 0;
-            updateStreak();
-            setStatus("bad", `Nope. This was a ${wdlToString(actualWdl)}`);
-        }
-        setGuessEnabled(false);
-        // Hide only guess buttons
-        // Analysis Mode toggle is always visible now
+      if (!gameActive) return;
+      drawOutcomeArrows(currentTbData);
+      const actualWdl = currentTbData.wdl;
+      let correct = (guessWdl === actualWdl);
+      if (correct) {
+        if (!streakInvalidated) { streak++; updateStreak(); }
+        setStatus("ok", `Spot on! This is indeed a ${wdlToString(actualWdl)}.`);
+      } else {
+        streak = 0;
+        updateStreak();
+        setStatus("bad", `Nope. This was a ${wdlToString(actualWdl)}`);
+      }
+      setGuessEnabled(false);
     }
 
     async function handleGameOver() {
-        let success = false;
-        let msg = "";
-        
-        // Determine Actual Result from User's Perspective (White)
-        // 1 = Win, 0 = Draw, -1 = Loss
-        let actualResult = 0; 
-        
-        if (chess.isCheckmate()) {
-            if (chess.turn() === 'b') actualResult = 1; // White mated Black
-            else actualResult = -1; // Black mated White
-        } else {
-            actualResult = 0; // Stalemate, Insufficient Material, etc.
-        }
-
-        // Determine Theoretical Outcome of the STARTING position
-        // We need to fetch or store the initial WDL. 
-        // currentTbData tracks current position. 
-        // Let's fetch initial position WDL again or store it in startNewGame.
-        // For now, let's just fetch it to be safe (or assume initialFen is valid).
-        
-        let initialWdl = 0;
-        try {
-            const initData = await fetchTablebase(initialFen);
-            // initData.wdl: 2 (Win), 0 (Draw), -2 (Loss)
-            if (initData.wdl === 2) initialWdl = 1;
-            else if (initData.wdl === -2) initialWdl = -1;
-            else initialWdl = 0;
-        } catch(e) { console.error("Could not fetch initial WDL", e); }
-
-        // Logic
-        if (actualResult === 1) {
-            // User Won
-            success = true;
-            if (initialWdl === 1) msg = "Nice conversion! Victory secured.";
-            else if (initialWdl === 0) msg = "Result: Win (Transposed from Draw).";
-            else msg = "Result: Win (Transposed from Loss)."; 
-        } else if (actualResult === -1) {
-            // User Lost
-            if (initialWdl === 1) {
-                success = false;
-                msg = "You failed to convert the win.";
-            } else if (initialWdl === 0) {
-                success = false;
-                msg = "Defense failed. You lost a drawable game.";
-            } else {
-                success = true; 
-                msg = "Expected result. The position was lost from the start.";
-            }
-        } else {
-            // Draw
-            if (initialWdl === 1) {
-                success = false;
-                msg = "You missed the win. Game drawn.";
-            } else if (initialWdl === 0) {
-                success = true;
-                msg = "Solid defense. Draw secured.";
-            } else {
-                success = true; 
-                msg = "Result: Draw (Transposed from Loss).";
-            }
-        }
-
-        if (success) {
-            if (!streakInvalidated) {
-                streak++;
-                updateStreak();
-            }
-            setStatus("ok", msg); // Green
-        } else {
-            // Reset streak on failure
-            streak = 0;
-            updateStreak();
-            setStatus("bad", msg); // Red
-        }
-        
-        endGame(success, msg);
+      let success = false;
+      let msg = "";
+      let actualResult = 0; 
+      if (chess.isCheckmate()) {
+        if (chess.turn() === 'b') actualResult = 1;
+        else actualResult = -1;
+      }
+      let initialWdl = 0;
+      try {
+        const initData = await fetchTablebase(initialFen);
+        if (initData.wdl === 2) initialWdl = 1;
+        else if (initData.wdl === -2) initialWdl = -1;
+      } catch(e) {}
+      if (actualResult === 1) {
+        success = true;
+        if (initialWdl === 1) msg = "Nice conversion! Victory secured.";
+        else if (initialWdl === 0) msg = "Result: Win (Transposed from Draw).";
+        else msg = "Result: Win (Transposed from Loss)."; 
+      } else if (actualResult === -1) {
+        if (initialWdl === 1) { success = false; msg = "You failed to convert the win."; }
+        else if (initialWdl === 0) { success = false; msg = "Defense failed. You lost a drawable game."; }
+        else { success = true; msg = "Expected result. The position was lost from the start."; }
+      } else {
+        if (initialWdl === 1) { success = false; msg = "You missed the win. Game drawn."; }
+        else if (initialWdl === 0) { success = true; msg = "Solid defense. Draw secured."; }
+        else { success = true; msg = "Result: Draw (Transposed from Loss)."; }
+      }
+      if (success && !streakInvalidated) { streak++; updateStreak(); setStatus("ok", msg); }
+      else { streak = 0; updateStreak(); setStatus("bad", msg); }
+      endGame(success, msg);
     }
 
     function endGame(success, msg) {
-        gameActive = false;
-        isUserTurn = false;
-        setStatus(success ? "ok" : "bad", msg);
-        setGuessEnabled(false);
-        
-        if (!success) {
-            streak = 0;
-            updateStreak();
-        }
-        // Analysis Mode toggle is always visible now
+      gameActive = false;
+      isUserTurn = false;
+      setStatus(success ? "ok" : "bad", msg);
+      setGuessEnabled(false);
+      if (!success) { streak = 0; updateStreak(); }
     }
-
-    // --- Generation & Validation Logic ---
 
     async function generateValidPosition() {
-        // 1. Determine Piece Composition from UI
-        let { w, b } = getSelectedPieces();
-        
-        // Ensure Kings
-        if(!w.includes('K')) w.push('K');
-        if(!b.includes('K')) b.push('K');
-
-        // 2. Sort Pieces to match file format (K, Q, R, B, N, P)
-        const sortOrder = (p) => PIECE_ORDER.indexOf(p);
-        w.sort((a, b) => sortOrder(a) - sortOrder(b));
-        b.sort((a, b) => sortOrder(a) - sortOrder(b));
-
-        // 3. Construct File Path
-        const filename = `${w.join('')}_${b.join('')}.txt`;
-        const url = `out/${filename}`; // Relative path
-
-        let text = "";
-
-        // Check Cache
-        if (cachedFilename === filename && cachedPositions) {
-            console.log(`Using cached positions for: ${filename}`);
-            text = cachedPositions;
-        } else {
-            console.log(`Cache miss. Fetching positions from: ${url}`);
-            setStatus("warn", "Fetching position...");
-
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    if (response.status === 404) {
-                        throw new Error(`No positions found for material: ${w.join('')} vs ${b.join('')}. (File ${filename} missing)`);
-                    }
-                    throw new Error(`Network error: ${response.status} ${response.statusText}`);
-                }
-
-                text = await response.text();
-                if (!text) throw new Error("Position file is empty.");
-                
-                // Update Cache
-                cachedPositions = text;
-                cachedFilename = filename;
-
-            } catch (e) {
-                console.error(e);
-                throw new Error(e.message);
-            }
-        }
-
-        // 4. Calculate Record Details
-        const flatList = [
-            ...w.map(p => ({ type: p, color: 'w' })),
-            ...b.map(p => ({ type: p, color: 'b' }))
-        ];
-        const recordLength = flatList.length;
-
-        if (text.length % recordLength !== 0) {
-            console.warn(`File length (${text.length}) is not a multiple of record length (${recordLength}). Trimming end.`);
-        }
-
-        const totalRecords = Math.floor(text.length / recordLength);
-        if (totalRecords === 0) throw new Error("File contains no complete records.");
-
-        // 5. Pick Random Record
-        const randomIndex = Math.floor(Math.random() * totalRecords);
-        const startOffset = randomIndex * recordLength;
-        const record = text.substring(startOffset, startOffset + recordLength);
-
-        console.log(`Selected record #${randomIndex}: ${record}`);
-
-        // 6. Decode Record to Board/FEN
-        // ALPHABET index -> 0..63.
-        // 0 = a1, 1 = b1 ... 7 = h1, 8 = a2 ...
-        
-        const grid = Array(8).fill(null).map(() => Array(8).fill(""));
-
-        for (let i = 0; i < recordLength; i++) {
-            const char = record[i];
-            const val = ALPHABET.indexOf(char);
-            if (val === -1) throw new Error(`Invalid character '${char}' in record.`);
-
-            const file = val % 8;       // 0-7 (a-h)
-            const rank = Math.floor(val / 8); // 0-7 (1-8)
-
-            // Grid usually indexed [row][col] where row 0 is top (rank 8)
-            // row index = 7 - rank
-            const gridRow = 7 - rank;
-            const gridCol = file;
-
-            const pieceDef = flatList[i];
-            const pChar = pieceDef.type.toUpperCase();
-            grid[gridRow][gridCol] = (pieceDef.color === 'w' ? pChar : pChar.toLowerCase());
-        }
-
-        // 7. Build FEN String
-        let fenRows = grid.map(row => {
-            let empty = 0;
-            let str = "";
-            row.forEach(c => {
-                if (c === "") empty++;
-                else {
-                    if (empty > 0) str += empty;
-                    empty = 0;
-                    str += c;
-                }
-            });
-            if (empty > 0) str += empty;
-            return str;
+      let { w, b } = getSelectedPieces();
+      if(!w.includes('K')) w.push('K');
+      if(!b.includes('K')) b.push('K');
+      const sortOrder = (p) => PIECE_ORDER.indexOf(p);
+      w.sort((a, b) => sortOrder(a) - sortOrder(b));
+      b.sort((a, b) => sortOrder(a) - sortOrder(b));
+      const filename = `${w.join('')}_${b.join('')}.txt`;
+      const url = `out/${filename}`;
+      let text = (cachedFilename === filename && cachedPositions) ? cachedPositions : "";
+      if (!text) {
+        setStatus("warn", "Fetching position...");
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`File ${filename} missing`);
+        text = await response.text();
+        cachedPositions = text;
+        cachedFilename = filename;
+      }
+      const recordLength = w.length + b.length;
+      const totalRecords = Math.floor(text.length / recordLength);
+      const record = text.substring(Math.floor(Math.random() * totalRecords) * recordLength, Math.floor(Math.random() * totalRecords) * recordLength + recordLength);
+      const grid = Array(8).fill(null).map(() => Array(8).fill(""));
+      const flatList = [...w.map(p => ({type: p, color: 'w'})), ...b.map(p => ({type: p, color: 'b'}))];
+      for (let i = 0; i < recordLength; i++) {
+        const val = ALPHABET.indexOf(record[i]);
+        const piece = flatList[i];
+        grid[7 - Math.floor(val / 8)][val % 8] = piece.color === 'w' ? piece.type.toUpperCase() : piece.type.toLowerCase();
+      }
+      return grid.map(row => {
+        let empty = 0, str = "";
+        row.forEach(c => {
+          if (c === "") empty++;
+          else { if (empty > 0) str += empty; empty = 0; str += c; }
         });
-        
-        const fen = fenRows.join("/") + " w - - 0 1";
-        return fen;
+        if (empty > 0) str += empty;
+        return str;
+      }).join("/") + " w - - 0 1";
     }
 
-    // --- Helpers ---
-
-    function clearArrows() {
-        if (typeof board.removeArrows === "function") board.removeArrows();
-    }
-
-    function uciToArrow(uci) {
-        if (typeof uci !== "string" || uci.length < 4) return null;
-        const from = uci.slice(0, 2);
-        const to = uci.slice(2, 4);
-        if (!/^[a-h][1-8]$/.test(from) || !/^[a-h][1-8]$/.test(to)) return null;
-        return { from, to };
-    }
-
+    function clearArrows() { if (typeof board.removeArrows === "function") board.removeArrows(); }
+    function uciToArrow(uci) { return { from: uci.slice(0, 2), to: uci.slice(2, 4) }; }
     function categoryToWdl(category) {
-        const c = String(category || "").toLowerCase();
-        if (c.includes("win")) return 2;
-        if (c.includes("loss")) return -2;
-        if (c.includes("draw")) return 0;
-        return null;
+      const c = String(category || "").toLowerCase();
+      if (c.includes("win")) return 2;
+      if (c.includes("loss")) return -2;
+      if (c.includes("draw")) return 0;
+      return null;
     }
 
     function drawOutcomeArrows(tbData) {
-        clearArrows();
-        const moves = Array.isArray(tbData?.moves) ? tbData.moves : [];
-        if (!moves.length) return;
-
-        // Map category to WDL and determine if any move is winning for current player
-        const movesWithWdl = moves.map(m => ({ ...m, wdl: categoryToWdl(m.category) }));
-        
-        // Collect unique outcomes present
-        const outcomes = new Set(movesWithWdl.map(m => m.wdl));
-        
-        // If all moves have the same outcome, show nothing
-        if (outcomes.size <= 1) return;
-
-        const winningMoves = movesWithWdl.filter(m => m.wdl === -2);
-        const hasWinningMove = winningMoves.length > 0;
-        
-        // Find best DTM among winning moves (lowest absolute value, usually negative or positive depending on API, but we want shortest mate)
-        // Lichess DTM: Negative if we are winning? Or just distance?
-        // Usually abs(dtm) is distance.
-        let bestDtm = Infinity;
-        if (hasWinningMove) {
-            winningMoves.forEach(m => {
-                if (m.dtm !== undefined && m.dtm !== null) {
-                    const dist = Math.abs(m.dtm);
-                    if (dist < bestDtm) bestDtm = dist;
-                }
-            });
-        }
-
-        for (const m of movesWithWdl) {
-            const arrow = uciToArrow(m.uci);
-            if (!arrow) continue;
-            
-            if (m.wdl === null) continue;
-
-            // Filter Logic:
-            // 1. Hide Losing moves (wdl === 2)
-            if (m.wdl === 2) continue;
-            
-            // 2. If winning moves exist, hide drawing moves
-            if (hasWinningMove && m.wdl === 0) continue;
-
-            // Convert TB WDL to our color WDL
-            // Opponent Loss (-2) = Our Win (2) -> Green
-            const moveWdl = -m.wdl; 
-
-            let arrowType = null;
-            if (moveWdl === 2) {
-                // Check if optimal DTM
-                let isBest = true;
-                if (m.dtm !== undefined && m.dtm !== null) {
-                    if (Math.abs(m.dtm) > bestDtm) isBest = false;
-                }
-                // Best move -> White, Suboptimal -> Green
-                arrowType = isBest ? ARROW_WIN_BEST : ARROW_WIN;
-            }
-            else if (moveWdl === 0) arrowType = ARROW_DRAW;
-            else if (moveWdl === -2) arrowType = ARROW_LOSS;
-
-            if (arrowType) {
-                board.addArrow(arrowType, arrow.from, arrow.to);
-            }
-        }
+      clearArrows();
+      const moves = Array.isArray(tbData?.moves) ? tbData.moves : [];
+      if (!moves.length) return;
+      const movesWithWdl = moves.map(m => ({ ...m, wdl: categoryToWdl(m.category) }));
+      const outcomes = new Set(movesWithWdl.map(m => m.wdl));
+      if (outcomes.size <= 1) return;
+      const winningMoves = movesWithWdl.filter(m => m.wdl === -2);
+      const hasWinningMove = winningMoves.length > 0;
+      let bestDtm = Infinity;
+      if (hasWinningMove) {
+        winningMoves.forEach(m => {
+          if (m.dtm !== undefined && m.dtm !== null) {
+            const dist = Math.abs(m.dtm);
+            if (dist < bestDtm) bestDtm = dist;
+          }
+        });
+      }
+      for (const m of movesWithWdl) {
+        const arrow = uciToArrow(m.uci);
+        if (m.wdl === 2 || (hasWinningMove && m.wdl === 0)) continue;
+        const moveWdl = -m.wdl; 
+        let arrowType = null;
+        if (moveWdl === 2) arrowType = (m.dtm !== undefined && Math.abs(m.dtm) <= bestDtm) ? ARROW_WIN_BEST : ARROW_WIN;
+        else if (moveWdl === 0) arrowType = ARROW_DRAW;
+        else if (moveWdl === -2) arrowType = ARROW_LOSS;
+        if (arrowType) board.addArrow(arrowType, arrow.from, arrow.to);
+      }
     }
 
     function getSelectedPieces() {
-        const val = document.getElementById("endgameSelect").value;
-        const [whitePart, blackPart] = val.split('_');
-        const w = whitePart.split(''); // e.g. "KP" -> ['K', 'P']
-        const b = blackPart.split(''); // e.g. "KR" -> ['K', 'R']
-        return { w, b };
+      const val = document.getElementById("endgameSelect").value;
+      return { w: val.split('_')[0].split(''), b: val.split('_')[1].split('') };
     }
 
     async function fetchTablebase(fen) {
-        const url = TABLEBASE_URL + encodeURIComponent(fen);
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("HTTP " + res.status + " " + res.statusText);
-        const data = await res.json();
-        
-        // Normalize
-        if (typeof data.wdl === 'undefined' && data.category) {
-            const cat = data.category;
-            if (cat === 'win') data.wdl = 2;
-            else if (cat === 'loss') data.wdl = -2;
-            else if (cat === 'draw') data.wdl = 0;
-            else data.wdl = 0;
-        }
-        return data;
+      const res = await fetch(TABLEBASE_URL + encodeURIComponent(fen));
+      const data = await res.json();
+      if (typeof data.wdl === 'undefined' && data.category) {
+        if (data.category === 'win') data.wdl = 2;
+        else if (data.category === 'loss') data.wdl = -2;
+        else data.wdl = 0;
+      }
+      return data;
     }
 
-    function setStatus(kind, text) {
-        el.status.textContent = text;
-        el.status.className = "status " + (kind || "");
-    }
+    function setStatus(kind, text) { el.status.textContent = text; el.status.className = "status " + (kind || ""); }
+    function setGuessEnabled(en) { el.btnWin.disabled = !en; el.btnDraw.disabled = !en; el.btnLoss.disabled = !en; }
+    function updateStreak() { el.streak.textContent = streak; }
+    function wdlToString(wdl) { return wdl > 0 ? "Win" : (wdl < 0 ? "Loss" : "Draw"); }
+    function updateLinks(fen) { el.analyze.href = `https://lichess.org/analysis/${fen.replace(/ /g, '_')}`; el.analyze.removeAttribute("aria-disabled"); }
 
-    function setGuessEnabled(en) {
-        el.btnWin.disabled = !en;
-        el.btnDraw.disabled = !en;
-        el.btnLoss.disabled = !en;
-    }
-
-    function updateStreak() {
-        el.streak.textContent = streak;
-    }
-
-    function wdlToString(wdl) {
-        if (wdl > 0) return "Win";
-        if (wdl < 0) return "Loss";
-        return "Draw";
-    }
-    
-    function updateLinks(fen) {
-        el.analyze.href = `https://lichess.org/analysis/${fen.replace(/ /g, '_')}`;
-        el.analyze.removeAttribute("aria-disabled");
-    }
-
+    loadSettings();
+    document.getElementById('endgameSelect').addEventListener('change', () => { saveSettings(); startNewGame(); });
+    startNewGame();
   </script>
 </body>
 </html>
