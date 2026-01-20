@@ -12,7 +12,9 @@
 
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("sw.js");
+      navigator.serviceWorker.register("sw.js").then(reg => {
+        reg.update();
+      }).catch(console.error);
     }
   </script>
 
@@ -708,9 +710,17 @@
       const url = await buildDataUrl(filename);
       if (mem.has(url)) return mem.get(url);
       const p = (async () => {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status}`);
-        return await res.text();
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), 5000);
+        try {
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(id);
+          if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status}`);
+          return await res.text();
+        } catch (e) {
+          clearTimeout(id);
+          throw e;
+        }
       })();
       mem.set(url, p);
       return p;
@@ -740,6 +750,29 @@
     let selectedSquare = null;
     let analysisMode = false;
     let streakInvalidated = false;
+    const perfLogs = [];
+
+    function addPerfLog(msg) {
+      perfLogs.push(msg);
+      if (perfLogs.length > 6) perfLogs.shift();
+      // Refresh current status text with new logs, keeping the main message (first line)
+      // We need to be careful not to create an infinite loop if we called setStatus inside.
+      // But setStatus uses textContent.
+      // Let's just update the display based on the last set 'main message'.
+      // To do this cleanly, let's store the 'currentMainStatus'.
+      if (currentMainStatus) setStatus(currentMainStatusKind, currentMainStatus);
+    }
+
+    let currentMainStatus = "";
+    let currentMainStatusKind = "";
+
+    function setStatus(kind, text) { 
+      currentMainStatus = text;
+      currentMainStatusKind = kind || "";
+      const fullText = text + (perfLogs.length ? "\n---\n" + perfLogs.join("\n") : "");
+      el.status.textContent = fullText; 
+      el.status.className = "status " + (kind || ""); 
+    }
 
     function isReallyGameOver() {
       return chess.isCheckmate() || (chess.isDraw() && !chess.isThreefoldRepetition());
@@ -841,7 +874,7 @@
           const res = await fetchTablebase(currentFen);
           currentTbData = res.data;
           const t2 = performance.now();
-          console.log(`UI/Process: ${(t2 - res.t1).toFixed(1)}ms`);
+          addPerfLog(`UI: ${(t2 - res.t1).toFixed(1)}ms`);
 
           gameActive = true;
           isUserTurn = true;
@@ -865,7 +898,7 @@
         const res = await fetchTablebase(currentFen);
         currentTbData = res.data;
         const t2 = performance.now();
-        console.log(`UI/Process: ${(t2 - res.t1).toFixed(1)}ms`);
+        addPerfLog(`UI: ${(t2 - res.t1).toFixed(1)}ms`);
 
         gameActive = true;
         isUserTurn = true;
@@ -971,7 +1004,7 @@
         const res = await fetchTablebase(fen);
         currentTbData = res.data;
         const t2 = performance.now();
-        console.log(`UI/Process: ${(t2 - res.t1).toFixed(1)}ms`);
+        addPerfLog(`UI: ${(t2 - res.t1).toFixed(1)}ms`);
 
         updateLinks(initialFen);
         const turnStr = chess.turn() === 'w' ? "White" : "Black";
@@ -1013,7 +1046,7 @@
           const res = await fetchTablebase(currentFen);
           currentTbData = res.data;
           const t2 = performance.now();
-          console.log(`UI/Process: ${(t2 - res.t1).toFixed(1)}ms`);
+          addPerfLog(`UI: ${(t2 - res.t1).toFixed(1)}ms`);
 
           const turnStr = chess.turn() === 'w' ? "White" : "Black";
           setStatus(null, `Analysis: ${turnStr} to move.`);
@@ -1036,7 +1069,7 @@
         const res = await fetchTablebase(newFen);
         const newData = res.data;
         const t2 = performance.now();
-        console.log(`UI/Process: ${(t2 - res.t1).toFixed(1)}ms`);
+        addPerfLog(`UI: ${(t2 - res.t1).toFixed(1)}ms`);
 
         let failed = false;
         let msg = "";
@@ -1072,7 +1105,7 @@
           const res = await fetchTablebase(currentFen);
           currentTbData = res.data;
           const t2 = performance.now();
-          console.log(`UI/Process: ${(t2 - res.t1).toFixed(1)}ms`);
+          addPerfLog(`UI: ${(t2 - res.t1).toFixed(1)}ms`);
 
           isUserTurn = true;
           if (!analysisMode) {
@@ -1117,7 +1150,7 @@
         const res = await fetchTablebase(initialFen);
         const initData = res.data;
         const t2 = performance.now();
-        console.log(`UI/Process: ${(t2 - res.t1).toFixed(1)}ms`);
+        addPerfLog(`UI: ${(t2 - res.t1).toFixed(1)}ms`);
 
         if (initData.wdl === 2) initialWdl = 1;
         else if (initData.wdl === -2) initialWdl = -1;
@@ -1163,7 +1196,7 @@
         setStatus("warn", "Fetching position...");
         text = await loadDense(filename);
       } catch (e) {
-        throw new Error(`File ${filename} missing or load failed`);
+        throw new Error(`File ${filename} missing or load failed: ${e.message}`);
       }
 
       const recordLength = w.length + b.length;
@@ -1241,7 +1274,7 @@
       const res = await fetch(TABLEBASE_URL + encodeURIComponent(fen));
       const data = await res.json();
       const t1 = performance.now();
-      console.log(`Lichess API Network: ${(t1 - t0).toFixed(1)}ms`);
+      addPerfLog(`Net: ${(t1 - t0).toFixed(1)}ms`);
 
       if (typeof data.wdl === 'undefined' && data.category) {
         if (data.category === 'win') data.wdl = 2;
@@ -1251,7 +1284,6 @@
       return { data, t1 };
     }
 
-    function setStatus(kind, text) { el.status.textContent = text; el.status.className = "status " + (kind || ""); }
     function setGuessEnabled(en) { el.btnWin.disabled = !en; el.btnDraw.disabled = !en; el.btnLoss.disabled = !en; }
     function updateStreak() { el.streak.textContent = streak; }
     function wdlToString(wdl) { return wdl > 0 ? "Win" : (wdl < 0 ? "Loss" : "Draw"); }
