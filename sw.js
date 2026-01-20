@@ -7,15 +7,6 @@ const CACHE_NAME = "trivial-endgames-v1";
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Network-first for manifest.json
-  if (url.pathname.endsWith("manifest.json")) {
-    event.respondWith(
-      fetch(event.request)
-        .catch(() => caches.match(event.request))
-    );
-    return;
-  }
-
   // Cache-first for versioned data files
   if (url.pathname.includes("/data/") && url.pathname.endsWith(".txt") && url.searchParams.has("v")) {
     event.respondWith(
