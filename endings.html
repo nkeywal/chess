@@ -754,6 +754,7 @@
     let selectedSquare = null;
     let analysisMode = false;
     let streakInvalidated = false;
+    let gameId = 0;
     const tbCache = new Map();
 
     function setStatus(kind, text) { 
@@ -963,6 +964,7 @@
     }
 
     async function startNewGame() {
+      const localGameId = ++gameId;
       gameActive = false;
       isUserTurn = false;
       currentTbData = null;
@@ -977,11 +979,14 @@
       setStatus("warn", "Setting up the board...");
       try {
         const fen = await generateValidPosition();
+        if (localGameId !== gameId) return;
         currentFen = fen;
         initialFen = fen;
         chess.load(fen);
         await board.setPosition(fen, true);
+        if (localGameId !== gameId) return;
         currentTbData = await fetchTablebase(fen);
+        if (localGameId !== gameId) return;
         updateLinks(initialFen);
         const turnStr = chess.turn() === 'w' ? "White" : "Black";
         setStatus(null, `${turnStr} to move: Evaluate or play.`);
@@ -993,6 +998,7 @@
           el.btnUndo.style.display = 'none';
         }
       } catch (e) {
+        if (localGameId !== gameId) return;
         console.error(e);
         setStatus("bad", "Error: " + e.message);
       }
@@ -1012,15 +1018,20 @@
     }
 
     async function handleUserMovePostProcess(lastMove) {
+      const localGameId = gameId;
       if (analysisMode) {
         currentFen = chess.fen();
         await board.setPosition(currentFen, true);
+        if (localGameId !== gameId) return;
+
         if (el.btnUndo && chess.history().length > 0) {
           el.btnUndo.classList.remove("hidden");
           el.btnUndo.style.display = '';
         }
         try {
           currentTbData = await fetchTablebase(currentFen);
+          if (localGameId !== gameId) return;
+
           const turnStr = chess.turn() === 'w' ? "White" : "Black";
           setStatus(null, `Analysis: ${turnStr} to move.`);
           if (isReallyGameOver()) handleGameOver();
@@ -1043,7 +1054,6 @@
         const uci = lastMove.from + lastMove.to + (lastMove.promotion || "");
         let moveData = currentTbData.moves.find(m => m.uci === uci);
         
-        // Fallback to SAN match if UCI fails (robustness fix)
         if (!moveData && lastMove.san) {
            moveData = currentTbData.moves.find(m => m.san === lastMove.san);
         }
@@ -1064,6 +1074,8 @@
            if (failed) {
              chess.undo();
              await board.setPosition(chess.fen(), true);
+             if (localGameId !== gameId) return;
+
              drawOutcomeArrows(currentTbData);
              endGame(false, msg);
              if (el.btnUndo) {
@@ -1078,22 +1090,21 @@
       try {
         const newFen = chess.fen();
         const newData = await fetchTablebase(newFen);
+        if (localGameId !== gameId) return;
 
         // Fallback Blunder Check (Post-fetch)
         const prevWdl = currentTbData.wdl;
         let postFailed = false;
         let postMsg = "";
         
-        // newData.wdl is from opponent's perspective.
-        // If I was Winning (2), I expect opponent to be Losing (-2).
         if (prevWdl === 2) {
-          if (newData.wdl === 0) { // Opponent draws
+          if (newData.wdl === 0) {
              postFailed = true; postMsg = `Slip-up! You let the win escape.`;
-          } else if (newData.wdl === 2) { // Opponent wins
+          } else if (newData.wdl === 2) {
              postFailed = true; postMsg = `Huge blunder! You threw away the win.`;
           }
         } else if (prevWdl === 0) {
-          if (newData.wdl === 2) { // Opponent wins
+          if (newData.wdl === 2) {
              postFailed = true; postMsg = "Mistake. The position is now lost.";
           }
         }
@@ -1101,6 +1112,8 @@
         if (postFailed) {
            chess.undo();
            await board.setPosition(chess.fen(), true);
+           if (localGameId !== gameId) return;
+
            drawOutcomeArrows(currentTbData);
            endGame(false, postMsg);
            if (el.btnUndo) {
@@ -1123,9 +1136,12 @@
           const promoC = uci.length > 4 ? uci[4] : undefined;
           chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: promoC || 'q' });
           await board.setPosition(chess.fen(), true);
+          if (localGameId !== gameId) return;
+
           if (isReallyGameOver()) { handleGameOver(); return; }
           currentFen = chess.fen();
           currentTbData = await fetchTablebase(currentFen);
+          if (localGameId !== gameId) return;
 
           isUserTurn = true;
           if (!analysisMode) {
@@ -1138,7 +1154,10 @@
             el.btnUndo.style.display = '';
           }
         } else handleGameOver();
-      } catch (e) { setStatus("bad", "Error: " + e.message); }
+      } catch (e) {
+        if (localGameId !== gameId) return;
+        setStatus("bad", "Error: " + e.message);
+      }
     }
 
     function handleGuess(guessWdl) {
