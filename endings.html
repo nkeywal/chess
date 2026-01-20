@@ -838,7 +838,11 @@
         setStatus("warn", "Loading analysis...");
         try {
           currentFen = chess.fen();
-          currentTbData = await fetchTablebase(currentFen);
+          const res = await fetchTablebase(currentFen);
+          currentTbData = res.data;
+          const t2 = performance.now();
+          console.log(`UI/Process: ${(t2 - res.t1).toFixed(1)}ms`);
+
           gameActive = true;
           isUserTurn = true;
           streakInvalidated = true;
@@ -858,7 +862,11 @@
       currentFen = chess.fen();
       await board.setPosition(currentFen, true);
       try {
-        currentTbData = await fetchTablebase(currentFen);
+        const res = await fetchTablebase(currentFen);
+        currentTbData = res.data;
+        const t2 = performance.now();
+        console.log(`UI/Process: ${(t2 - res.t1).toFixed(1)}ms`);
+
         gameActive = true;
         isUserTurn = true;
         if (analysisMode) {
@@ -960,7 +968,11 @@
         initialFen = fen;
         chess.load(fen);
         await board.setPosition(fen, true);
-        currentTbData = await fetchTablebase(fen);
+        const res = await fetchTablebase(fen);
+        currentTbData = res.data;
+        const t2 = performance.now();
+        console.log(`UI/Process: ${(t2 - res.t1).toFixed(1)}ms`);
+
         updateLinks(initialFen);
         const turnStr = chess.turn() === 'w' ? "White" : "Black";
         setStatus(null, `${turnStr} to move: Evaluate or play.`);
@@ -998,7 +1010,11 @@
           el.btnUndo.style.display = '';
         }
         try {
-          currentTbData = await fetchTablebase(currentFen);
+          const res = await fetchTablebase(currentFen);
+          currentTbData = res.data;
+          const t2 = performance.now();
+          console.log(`UI/Process: ${(t2 - res.t1).toFixed(1)}ms`);
+
           const turnStr = chess.turn() === 'w' ? "White" : "Black";
           setStatus(null, `Analysis: ${turnStr} to move.`);
           if (isReallyGameOver()) handleGameOver();
@@ -1017,7 +1033,11 @@
       const prevWdl = currentTbData.wdl;
       try {
         const newFen = chess.fen();
-        const newData = await fetchTablebase(newFen);
+        const res = await fetchTablebase(newFen);
+        const newData = res.data;
+        const t2 = performance.now();
+        console.log(`UI/Process: ${(t2 - res.t1).toFixed(1)}ms`);
+
         let failed = false;
         let msg = "";
         if (prevWdl === 2) {
@@ -1049,7 +1069,11 @@
           await board.setPosition(chess.fen(), true);
           if (isReallyGameOver()) { handleGameOver(); return; }
           currentFen = chess.fen();
-          currentTbData = await fetchTablebase(currentFen);
+          const res = await fetchTablebase(currentFen);
+          currentTbData = res.data;
+          const t2 = performance.now();
+          console.log(`UI/Process: ${(t2 - res.t1).toFixed(1)}ms`);
+
           isUserTurn = true;
           if (!analysisMode) {
             setGuessEnabled(true);
@@ -1090,7 +1114,11 @@
       }
       let initialWdl = 0;
       try {
-        const initData = await fetchTablebase(initialFen);
+        const res = await fetchTablebase(initialFen);
+        const initData = res.data;
+        const t2 = performance.now();
+        console.log(`UI/Process: ${(t2 - res.t1).toFixed(1)}ms`);
+
         if (initData.wdl === 2) initialWdl = 1;
         else if (initData.wdl === -2) initialWdl = -1;
       } catch(e) {}
@@ -1209,14 +1237,18 @@
     }
 
     async function fetchTablebase(fen) {
+      const t0 = performance.now();
       const res = await fetch(TABLEBASE_URL + encodeURIComponent(fen));
       const data = await res.json();
+      const t1 = performance.now();
+      console.log(`Lichess API Network: ${(t1 - t0).toFixed(1)}ms`);
+
       if (typeof data.wdl === 'undefined' && data.category) {
         if (data.category === 'win') data.wdl = 2;
         else if (data.category === 'loss') data.wdl = -2;
         else data.wdl = 0;
       }
-      return data;
+      return { data, t1 };
     }
 
     function setStatus(kind, text) { el.status.textContent = text; el.status.className = "status " + (kind || ""); }
