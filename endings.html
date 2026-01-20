@@ -466,65 +466,48 @@
   <div id="infoModal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
-        <h2>About</h2>
+        <h2>Trivial Endgames</h2>
         <button class="btn-close" id="btnCloseInfo">&times;</button>
       </div>
       <div class="modal-body">
         <div class="about-content" style="line-height: 1.6; font-size: 0.95rem;">
           <p>
-            Endgames so easy you don't even need to move the pieces to evaluate them. 
-            But you can if you want—nobody will see you.
-          </p>
-          <p>
-            <strong>Analysis Mode</strong> lets you try different lines. The numbers indicate the 
-            minimal number of half-moves until mate with perfect play. 
-            You can also open the position on Lichess.
+            Simple endgames you can solve without moving the pieces (but you can 😅).<br>
+            In Analysis mode, each non-drawing move shows mate distance in half-moves (ply) with best play.
           </p>
           
-          <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 16px 0;">
+          <div style="height: 16px;"></div>
 
-          <p>
-            <strong><a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" style="color: inherit; text-decoration: underline;">Apache License</a>. Feedback:</strong> 
-            <a href="https://github.com/nkeywal/trivial-endgames/issues" target="_blank" style="color: inherit; text-decoration: underline;">Create an issue</a>, 
-            or tag <strong>@nkeywal</strong> on 
-            <a href="https://bsky.app/profile/nkeywal.bsky.social" target="_blank" style="color: inherit; text-decoration: underline;">Bluesky</a> 
-            or 
-            <a href="https://mstdn.social/@nkeywal" target="_blank" style="color: inherit; text-decoration: underline;">Mastodon</a>.
+          <p style="margin: 8px 0;">
+            Uses the <a href="https://lichess.org" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">Lichess Tablebase API</a>.
           </p>
 
-          <div class="built-with" style="margin-top: 24px; font-size: 0.9em; opacity: 0.9;">
-            <p style="margin-bottom: 8px; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.05em; color: #8b9bb4;">Built with</p>
-            
-            <div style="display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; align-items: baseline;">
-              
-              <div style="text-align: right; color: #6FB4FF; font-weight: 600;">Tablebase API</div>
-              <div>
-                <a href="https://lichess.org" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">Lichess</a>
-                <span style="opacity: 0.7;"> by Thibault Duplessis & al.</span>
-              </div>
+          <p style="margin: 8px 0;">
+            Built with: 
+            <a href="https://github.com/michiguel/Gaviota-Tablebases" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">Gaviota</a>, 
+            <a href="https://github.com/niklasf/python-chess" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">python-chess</a>, 
+            <a href="https://github.com/shaack/cm-chessboard" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">cm-chessboard</a>, 
+            <a href="https://github.com/jhlywa/chess.js" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">chess.js</a>.
+          </p>
 
-              <div style="text-align: right; color: #6FB4FF; font-weight: 600;">Pos. Gen.</div>
-              <div>
-                <a href="https://github.com/michiguel/Gaviota-Tablebases" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">Gaviota</a>
-                <span style="opacity: 0.7;"> by M. A. Ballicora</span> & 
-                <a href="https://github.com/niklasf/python-chess" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">python-chess</a>
-                <span style="opacity: 0.7;"> by N. Fiekas</span>
-              </div>
+          <div style="height: 16px;"></div>
 
-              <div style="text-align: right; color: #6FB4FF; font-weight: 600;">UI</div>
-              <div>
-                <a href="https://github.com/shaack/cm-chessboard" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">cm-chessboard</a>
-                <span style="opacity: 0.7;"> by Stefan Haack</span> & 
-                <a href="https://github.com/jhlywa/chess.js" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">chess.js</a>
-                <span style="opacity: 0.7;"> by Jeff Hlywa</span>
-              </div>
+          <p style="margin: 8px 0;">
+            <a href="https://github.com/nkeywal/chess/" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">Open Source</a> (<a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">Apache License</a>).
+          </p>
 
-            </div>
-          </div>
+          <p style="margin: 8px 0;">
+            No user activity is tracked, collected, or stored.
+          </p>
 
-          <div style="margin-top: 24px; opacity: 0.5; font-size: 0.85em;">
-            <strong>GDPR:</strong> We don't keep nor have any data. Actually, we don't even know you're reading this.
-          </div>
+          <p style="margin: 8px 0;">
+            Feedback: 
+            <a href="https://github.com/nkeywal/chess/issues" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">Create an issue</a>, 
+            or tag @nkeywal on 
+            <a href="https://bsky.app/profile/nkeywal.bsky.social" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">Bluesky</a> 
+            or 
+            <a href="https://mstdn.social/@nkeywal" target="_blank" style="color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.3);">Mastodon</a>.
+          </p>
         </div>
       </div>
     </div>
