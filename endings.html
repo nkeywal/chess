@@ -1057,6 +1057,9 @@
            }
            
            if (failed) {
+             chess.undo();
+             board.setPosition(chess.fen(), true);
+             drawOutcomeArrows(currentTbData);
              endGame(false, msg);
              if (el.btnUndo) {
                el.btnUndo.classList.remove("hidden");
@@ -1070,6 +1073,37 @@
       try {
         const newFen = chess.fen();
         const newData = await fetchTablebase(newFen);
+
+        // Fallback Blunder Check (Post-fetch)
+        const prevWdl = currentTbData.wdl;
+        let postFailed = false;
+        let postMsg = "";
+        
+        // newData.wdl is from opponent's perspective.
+        // If I was Winning (2), I expect opponent to be Losing (-2).
+        if (prevWdl === 2) {
+          if (newData.wdl === 0) { // Opponent draws
+             postFailed = true; postMsg = `Slip-up! You let the win escape.`;
+          } else if (newData.wdl === 2) { // Opponent wins
+             postFailed = true; postMsg = `Huge blunder! You threw away the win.`;
+          }
+        } else if (prevWdl === 0) {
+          if (newData.wdl === 2) { // Opponent wins
+             postFailed = true; postMsg = "Mistake. The position is now lost.";
+          }
+        }
+
+        if (postFailed) {
+           chess.undo();
+           board.setPosition(chess.fen(), true);
+           drawOutcomeArrows(currentTbData);
+           endGame(false, postMsg);
+           if (el.btnUndo) {
+             el.btnUndo.classList.remove("hidden");
+             el.btnUndo.style.display = '';
+           }
+           return;
+        }
 
         if (isReallyGameOver()) { handleGameOver(); return; }
         if (newData.moves && newData.moves.length > 0) {
