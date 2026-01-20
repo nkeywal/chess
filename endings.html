@@ -487,8 +487,7 @@
       <div class="modal-body">
         <div class="about-content" style="line-height: 1.6; font-size: 0.95rem;">
           <p>
-            <i>"All endgames are trivial, but some endgames are more trivial than others."</i><br>
-            In Analysis mode, each non-drawing move shows mate distance in half-moves (ply) with best play.
+            <i>"All endgames are trivial, but some endgames are more trivial than others."</i>
           </p>
           
           <div style="height: 16px;"></div>
@@ -1042,7 +1041,13 @@
       // Optimization: Check for blunder locally
       if (lastMove && currentTbData.moves) {
         const uci = lastMove.from + lastMove.to + (lastMove.promotion || "");
-        const moveData = currentTbData.moves.find(m => m.uci === uci);
+        let moveData = currentTbData.moves.find(m => m.uci === uci);
+        
+        // Fallback to SAN match if UCI fails (robustness fix)
+        if (!moveData && lastMove.san) {
+           moveData = currentTbData.moves.find(m => m.san === lastMove.san);
+        }
+
         if (moveData) {
            const moveWdl = categoryToWdl(moveData.category);
            const prevWdl = currentTbData.wdl;
@@ -1058,7 +1063,7 @@
            
            if (failed) {
              chess.undo();
-             board.setPosition(chess.fen(), true);
+             await board.setPosition(chess.fen(), true);
              drawOutcomeArrows(currentTbData);
              endGame(false, msg);
              if (el.btnUndo) {
@@ -1095,7 +1100,7 @@
 
         if (postFailed) {
            chess.undo();
-           board.setPosition(chess.fen(), true);
+           await board.setPosition(chess.fen(), true);
            drawOutcomeArrows(currentTbData);
            endGame(false, postMsg);
            if (el.btnUndo) {
