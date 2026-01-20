@@ -793,7 +793,7 @@ def main() -> None:
     gaviota_root = Path("./gaviota")
     gaviota_dirs = find_gaviota_dirs(gaviota_root)
 
-    out_dir = Path("./out")
+    out_dir = Path("./data")
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / material.filename
 

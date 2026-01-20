@@ -17,12 +17,12 @@ PIECE_RE = re.compile(r"[KQRBNP]+")
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description=(
-            "Downsample position files in ./out. "
+            "Downsample position files in ./data. "
             "Files over --max-bytes are renamed to *.full.txt and "
             "a smaller file is created with ~--target-bytes random records."
         )
     )
-    p.add_argument("--out-dir", default="out", help="Directory containing position files.")
+    p.add_argument("--out-dir", default="data", help="Directory containing position files.")
     p.add_argument("--max-bytes", type=int, default=500_000, help="Threshold to downsample.")
     p.add_argument("--target-bytes", type=int, default=400_000, help="Approx target size for new file.")
     p.add_argument("--seed", type=int, default=None, help="Optional RNG seed for reproducibility.")

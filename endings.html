@@ -8,6 +8,12 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/assets/chessboard.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/assets/extensions/arrows/arrows.css">
 
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js");
+    }
+  </script>
+
   <style>
     :root {
       --bg: #0b0f17;
@@ -673,6 +679,41 @@
     const PIECE_ORDER = "KQRBNP";
     const TABLEBASE_URL = "https://tablebase.lichess.ovh/standard?fen=";
 
+    // Loader with manifest + cache session
+    let MANIFEST = null;
+    const mem = new Map();
+
+    async function getManifest() {
+      if (MANIFEST) return MANIFEST;
+      const res = await fetch("data/manifest.json", { cache: "no-store" });
+      if (!res.ok) throw new Error(`manifest.json load failed: ${res.status}`);
+      const m = await res.json();
+      if (!m || typeof m !== "object" || !m.files || typeof m.files !== "object") {
+        throw new Error("Invalid manifest format");
+      }
+      MANIFEST = m;
+      return MANIFEST;
+    }
+
+    async function buildDataUrl(filename) {
+      const m = await getManifest();
+      const hash = m.files[filename];
+      if (!hash) throw new Error(`Missing hash for ${filename} in manifest`);
+      return `data/${filename}?v=${encodeURIComponent(hash)}`;
+    }
+
+    async function loadDense(filename) {
+      const url = await buildDataUrl(filename);
+      if (mem.has(url)) return mem.get(url);
+      const p = (async () => {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status}`);
+        return await res.text();
+      })();
+      mem.set(url, p);
+      return p;
+    }
+
     const el = {
       status: document.getElementById("status"),
       streak: document.getElementById("streak"),
@@ -695,8 +736,6 @@
     let isUserTurn = false;
     let gameActive = false;
     let selectedSquare = null;
-    let cachedPositions = null;
-    let cachedFilename = null;
     let analysisMode = false;
     let streakInvalidated = false;
 
@@ -1088,16 +1127,15 @@
       w.sort((a, b) => sortOrder(a) - sortOrder(b));
       b.sort((a, b) => sortOrder(a) - sortOrder(b));
       const filename = `${w.join('')}_${b.join('')}.txt`;
-      const url = `out/${filename}`;
-      let text = (cachedFilename === filename && cachedPositions) ? cachedPositions : "";
-      if (!text) {
+      
+      let text = "";
+      try {
         setStatus("warn", "Fetching position...");
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`File ${filename} missing`);
-        text = await response.text();
-        cachedPositions = text;
-        cachedFilename = filename;
+        text = await loadDense(filename);
+      } catch (e) {
+        throw new Error(`File ${filename} missing or load failed`);
       }
+
       const recordLength = w.length + b.length;
       const totalRecords = Math.floor(text.length / recordLength);
       const randomIndex = Math.floor(Math.random() * totalRecords);
