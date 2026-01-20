@@ -23,7 +23,6 @@
       /* Spec Palette */
       --color-analysis: #6FB4FF;
       --color-win: #1F6F4A;
-      --color-win-best: #2ecc71;
       --color-draw: #d97706;
       --color-loss: #e74c3c;
       --color-neutral-icon: rgba(255,255,255,0.55);
@@ -247,8 +246,7 @@
     }
 
     /* Analysis Mode Markers */
-    .marker-god-win { fill: var(--color-win-best); opacity: 0.7; pointer-events: none; }
-    .marker-god-win-best { fill: var(--color-win-best); opacity: 0.7; pointer-events: none; }
+    .marker-god-win { fill: var(--color-win); opacity: 0.7; pointer-events: none; }
     .marker-god-draw { fill: var(--color-draw); opacity: 0.7; pointer-events: none; }
     .marker-god-loss { fill: var(--color-loss); opacity: 0.7; pointer-events: none; }
 
@@ -284,13 +282,6 @@
       fill: none !important;
     }
     
-    .arrow-win-best line, .arrow-win-best path { 
-      stroke: var(--color-win-best) !important; 
-      stroke-width: 6px !important;
-      marker-end: url(#arrowHeadWinBest) !important;
-      fill: none !important;
-    }
-
     .arrow-draw line, .arrow-draw path { 
       stroke: var(--color-draw) !important; 
       stroke-width: 6px !important;
@@ -305,12 +296,12 @@
       fill: none !important;
     }
 
-    .arrow-win, .arrow-draw, .arrow-loss, .arrow-win-best {
+    .arrow-win, .arrow-draw, .arrow-loss {
       opacity: 0.9;
       filter: drop-shadow(0 0 4px rgba(0,0,0,0.5));
     }
     
-    .arrow-win line, .arrow-draw line, .arrow-loss line, .arrow-win-best line {
+    .arrow-win line, .arrow-draw line, .arrow-loss line {
       stroke-linecap: round;
     }
 
@@ -322,6 +313,14 @@
     @media (max-width: 900px) {
       body { place-items: start center; }
     }
+
+    @media (max-width: 600px) {
+      .arrow-win line, .arrow-win path,
+      .arrow-draw line, .arrow-draw path,
+      .arrow-loss line, .arrow-loss path {
+        stroke-width: 3px !important;
+      }
+    }
   </style>
 </head>
 
@@ -330,9 +329,6 @@
     <defs>
       <marker id="arrowHeadWin" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
         <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-win)" />
-      </marker>
-      <marker id="arrowHeadWinBest" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-win-best)" />
       </marker>
       <marker id="arrowHeadDraw" viewBox="0 0 10 10" refX="2.5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
         <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-draw)" />
@@ -564,11 +560,9 @@
     const MARKER_SOURCE = { class: "marker-source", slice: "markerSquare" };
     const MARKER_DEST = { class: "marker-dest", slice: "markerDot" };
     const MARKER_GOD_WIN = { class: "marker-god-win", slice: "markerDot" };
-    const MARKER_GOD_WIN_BEST = { class: "marker-god-win-best", slice: "markerDot" };
     const MARKER_GOD_DRAW = { class: "marker-god-draw", slice: "markerDot" };
     const MARKER_GOD_LOSS = { class: "marker-god-loss", slice: "markerDot" };
     const ARROW_WIN = { ...ARROW_TYPE.default, class: "arrow-win" };
-    const ARROW_WIN_BEST = { ...ARROW_TYPE.default, class: "arrow-win-best" };
     const ARROW_DRAW = { ...ARROW_TYPE.default, class: "arrow-draw" };
     const ARROW_LOSS = { ...ARROW_TYPE.default, class: "arrow-loss" };
 
@@ -774,7 +768,7 @@
           });
           destMap.forEach((data, dest) => {
             let markerDef = MARKER_GOD_DRAW;
-            if (data.wdl === -2) markerDef = (data.dtm <= bestDtmForSquare) ? MARKER_GOD_WIN_BEST : MARKER_GOD_WIN;
+            if (data.wdl === -2) markerDef = MARKER_GOD_WIN;
             else if (data.wdl === 2) markerDef = MARKER_GOD_LOSS;
             const marker = { ...markerDef };
             if (data.dtm !== undefined && data.dtm !== Infinity) marker.dtm = data.dtm;
@@ -959,8 +953,8 @@
       if (actualResult === 1) {
         success = true;
         if (initialWdl === 1) msg = "Nice conversion! Victory secured.";
-        else if (initialWdl === 0) msg = "Result: Win (Transposed from Draw).";
-        else msg = "Result: Win (Transposed from Loss)."; 
+        else if (initialWdl === 0) msg = "Win (Theoritical Draw).";
+        else msg = "Win (Theoritical Loss)."; 
       } else if (actualResult === -1) {
         if (initialWdl === 1) { success = false; msg = "You failed to convert the win."; }
         else if (initialWdl === 0) { success = false; msg = "Defense failed. You lost a drawable game."; }
@@ -968,7 +962,7 @@
       } else {
         if (initialWdl === 1) { success = false; msg = "You missed the win. Game drawn."; }
         else if (initialWdl === 0) { success = true; msg = "Solid defense. Draw secured."; }
-        else { success = true; msg = "Result: Draw (Transposed from Loss)."; }
+        else { success = true; msg = "Draw (Theoritical Loss)."; }
       }
       if (success && !streakInvalidated) { streak++; updateStreak(); setStatus("ok", msg); }
       else { streak = 0; updateStreak(); setStatus("bad", msg); }
@@ -1057,7 +1051,9 @@
         if (m.wdl === 2 || (hasWinningMove && m.wdl === 0)) continue;
         const moveWdl = -m.wdl; 
         let arrowType = null;
-        if (moveWdl === 2) arrowType = (m.dtm !== undefined && Math.abs(m.dtm) <= bestDtm) ? ARROW_WIN_BEST : ARROW_WIN;
+        if (moveWdl === 2) {
+            if (m.dtm !== undefined && Math.abs(m.dtm) <= bestDtm) arrowType = ARROW_WIN;
+        }
         else if (moveWdl === 0) arrowType = ARROW_DRAW;
         else if (moveWdl === -2) arrowType = ARROW_LOSS;
         if (arrowType) board.addArrow(arrowType, arrow.from, arrow.to);
