@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Trivial Endgames</title>
 
+  <link rel="preconnect" href="https://tablebase.lichess.ovh" crossorigin>
+  <link rel="dns-prefetch" href="https://tablebase.lichess.ovh">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+
   <link rel="icon" type="image/svg+xml" href="trivialendgames.svg">
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/assets/chessboard.css">
@@ -751,6 +756,7 @@
     let analysisMode = false;
     let streakInvalidated = false;
     const perfLogs = [];
+    const tbCache = new Map();
 
     function addPerfLog(msg) {
       perfLogs.push(msg);
@@ -987,6 +993,7 @@
       gameActive = false;
       isUserTurn = false;
       currentTbData = null;
+      tbCache.clear();
       clearArrows();
       selectSquare(null);
       setGuessEnabled(false);
@@ -1026,15 +1033,16 @@
       clearArrows();
       selectSquare(null);
       if (!gameActive) return;
+      let moveResult = null;
       try {
-        const moveResult = chess.move({ from, to, promotion });
+        moveResult = chess.move({ from, to, promotion });
         if (!moveResult) return false;
       } catch (err) { return false; }
-      await handleUserMovePostProcess();
+      await handleUserMovePostProcess(moveResult);
       return true;
     }
 
-    async function handleUserMovePostProcess() {
+    async function handleUserMovePostProcess(lastMove) {
       if (analysisMode) {
         currentFen = chess.fen();
         await board.setPosition(currentFen, true);
@@ -1058,12 +1066,41 @@
 
       isUserTurn = false;
       setStatus("warn", "Thinking...");
+      
       if (!currentTbData || typeof currentTbData.wdl !== 'number') {
         setStatus('bad', 'Internal error: missing tablebase data.');
         endGame(false, 'Internal error: missing tablebase data.');
         return;
       }
-      const prevWdl = currentTbData.wdl;
+
+      // Optimization: Check for blunder locally
+      if (lastMove && currentTbData.moves) {
+        const uci = lastMove.from + lastMove.to + (lastMove.promotion || "");
+        const moveData = currentTbData.moves.find(m => m.uci === uci);
+        if (moveData) {
+           const moveWdl = categoryToWdl(moveData.category);
+           const prevWdl = currentTbData.wdl;
+           let failed = false;
+           let msg = "";
+           
+           if (prevWdl === 2) {
+             if (moveWdl === 0) { failed = true; msg = `Slip-up! You let the win escape.`; }
+             else if (moveWdl === -2) { failed = true; msg = `Huge blunder! You threw away the win.`; }
+           } else if (prevWdl === 0) {
+             if (moveWdl === -2) { failed = true; msg = "Mistake. The position is now lost."; }
+           }
+           
+           if (failed) {
+             endGame(false, msg);
+             if (el.btnUndo) {
+               el.btnUndo.classList.remove("hidden");
+               el.btnUndo.style.display = '';
+             }
+             return;
+           }
+        }
+      }
+
       try {
         const newFen = chess.fen();
         const res = await fetchTablebase(newFen);
@@ -1071,22 +1108,6 @@
         const t2 = performance.now();
         addPerfLog(`UI: ${(t2 - res.t1).toFixed(1)}ms`);
 
-        let failed = false;
-        let msg = "";
-        if (prevWdl === 2) {
-          if (newData.wdl === 0) { failed = true; msg = `Slip-up! You let the win escape.`; }
-          else if (newData.wdl === 2) { failed = true; msg = `Huge blunder! You threw away the win.`; }
-        } else if (prevWdl === 0) {
-          if (newData.wdl === 2) { failed = true; msg = "Mistake. The position is now lost."; }
-        }
-        if (failed) {
-          endGame(false, msg);
-          if (el.btnUndo) {
-            el.btnUndo.classList.remove("hidden");
-            el.btnUndo.style.display = '';
-          }
-          return;
-        }
         if (isReallyGameOver()) { handleGameOver(); return; }
         if (newData.moves && newData.moves.length > 0) {
           let bestMove = newData.moves[0];
@@ -1102,10 +1123,10 @@
           await board.setPosition(chess.fen(), true);
           if (isReallyGameOver()) { handleGameOver(); return; }
           currentFen = chess.fen();
-          const res = await fetchTablebase(currentFen);
-          currentTbData = res.data;
-          const t2 = performance.now();
-          addPerfLog(`UI: ${(t2 - res.t1).toFixed(1)}ms`);
+          const res2 = await fetchTablebase(currentFen);
+          currentTbData = res2.data;
+          const t3 = performance.now();
+          addPerfLog(`UI: ${(t3 - res2.t1).toFixed(1)}ms`);
 
           isUserTurn = true;
           if (!analysisMode) {
@@ -1270,6 +1291,10 @@
     }
 
     async function fetchTablebase(fen) {
+      if (tbCache.has(fen)) {
+        addPerfLog("Net: Cache");
+        return { data: tbCache.get(fen), t1: performance.now() };
+      }
       const t0 = performance.now();
       const res = await fetch(TABLEBASE_URL + encodeURIComponent(fen));
       const data = await res.json();
@@ -1281,6 +1306,7 @@
         else if (data.category === 'loss') data.wdl = -2;
         else data.wdl = 0;
       }
+      tbCache.set(fen, data);
       return { data, t1 };
     }
 
