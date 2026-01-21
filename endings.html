@@ -1049,79 +1049,46 @@
         return;
       }
 
-      // Optimization: Check for blunder locally
+      // Check for blunder locally using existing data (Lichess returns all legal moves)
       if (lastMove && currentTbData.moves) {
         const uci = lastMove.from + lastMove.to + (lastMove.promotion || "");
-        let moveData = currentTbData.moves.find(m => m.uci === uci);
-        
-        if (!moveData && lastMove.san) {
-           moveData = currentTbData.moves.find(m => m.san === lastMove.san);
-        }
+        const moveData = currentTbData.moves.find(m => m.uci === uci) || 
+                         currentTbData.moves.find(m => m.san === lastMove.san);
 
         if (moveData) {
-           const moveWdl = categoryToWdl(moveData.category);
+           const cat = (moveData.category || "").toLowerCase();
+           const isDrawingForMe = cat.includes("draw");
+           const isLosingForMe = cat.includes("win"); // Opponent wins
+
            const prevWdl = currentTbData.wdl;
            let failed = false;
            let msg = "";
-           
+
            if (prevWdl === 2) {
-             if (moveWdl === 0) { failed = true; msg = `Slip-up! You let the win escape.`; }
-             else if (moveWdl === -2) { failed = true; msg = `Huge blunder! You threw away the win.`; }
-           } else if (prevWdl === 0) {
-             if (moveWdl === -2) { failed = true; msg = "Mistake. The position is now lost."; }
+             if (isDrawingForMe) { failed = true; msg = `It was winning, it is now a draw`; }
+             else if (isLosingForMe) { failed = true; msg = `A winning position is now lost`; }
+           } else if (prevWdl === 0 && isLosingForMe) {
+             failed = true; msg = "A drawn position is now lost";
            }
            
            if (failed) {
              chess.undo();
              await board.setPosition(chess.fen(), true);
              if (localGameId !== gameId) return;
-
              drawOutcomeArrows(currentTbData);
              endGame(false, msg);
              if (el.btnUndo) {
                el.btnUndo.classList.remove("hidden");
                el.btnUndo.style.display = '';
              }
-             return;
+             return; // Stop here: don't fetch anything if the user blundered.
            }
         }
       }
 
       try {
-        const newFen = chess.fen();
-        const newData = await fetchTablebase(newFen);
+        const newData = await fetchTablebase(chess.fen());
         if (localGameId !== gameId) return;
-
-        // Fallback Blunder Check (Post-fetch)
-        const prevWdl = currentTbData.wdl;
-        let postFailed = false;
-        let postMsg = "";
-        
-        if (prevWdl === 2) {
-          if (newData.wdl === 0) {
-             postFailed = true; postMsg = `Slip-up! You let the win escape.`;
-          } else if (newData.wdl === 2) {
-             postFailed = true; postMsg = `Huge blunder! You threw away the win.`;
-          }
-        } else if (prevWdl === 0) {
-          if (newData.wdl === 2) {
-             postFailed = true; postMsg = "Mistake. The position is now lost.";
-          }
-        }
-
-        if (postFailed) {
-           chess.undo();
-           await board.setPosition(chess.fen(), true);
-           if (localGameId !== gameId) return;
-
-           drawOutcomeArrows(currentTbData);
-           endGame(false, postMsg);
-           if (el.btnUndo) {
-             el.btnUndo.classList.remove("hidden");
-             el.btnUndo.style.display = '';
-           }
-           return;
-        }
 
         if (isReallyGameOver()) { handleGameOver(); return; }
         if (newData.moves && newData.moves.length > 0) {
@@ -1190,20 +1157,17 @@
         if (initData.wdl === 2) initialWdl = 1;
         else if (initData.wdl === -2) initialWdl = -1;
       } catch(e) {}
-      if (actualResult === 1) {
-        success = true;
-        if (initialWdl === 1) msg = "Nice conversion! Victory secured.";
-        else if (initialWdl === 0) msg = "Win (Theoritical Draw).";
-        else msg = "Win (Theoritical Loss)."; 
-      } else if (actualResult === -1) {
-        if (initialWdl === 1) { success = false; msg = "You failed to convert the win."; }
-        else if (initialWdl === 0) { success = false; msg = "Defense failed. You lost a drawable game."; }
-        else { success = true; msg = "Expected result. The position was lost from the start."; }
+
+      const resStr = actualResult === 1 ? "Win" : (actualResult === -1 ? "Loss" : "Draw");
+      const initStr = initialWdl === 1 ? "Win" : (initialWdl === 0 ? "Draw" : "Loss");
+      msg = `${resStr} (Theoretical ${initStr}).`;
+
+      if (analysisMode) {
+        success = true; 
       } else {
-        if (initialWdl === 1) { success = false; msg = "You missed the win. Game drawn."; }
-        else if (initialWdl === 0) { success = true; msg = "Solid defense. Draw secured."; }
-        else { success = true; msg = "Draw (Theoritical Loss)."; }
+        success = (actualResult >= initialWdl);
       }
+      
       if (success && !streakInvalidated) { streak++; updateStreak(); setStatus("ok", msg); }
       else { streak = 0; updateStreak(); setStatus("bad", msg); }
       endGame(success, msg);
