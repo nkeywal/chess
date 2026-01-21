@@ -1158,14 +1158,25 @@
         else if (initData.wdl === -2) initialWdl = -1;
       } catch(e) {}
 
-      const resStr = actualResult === 1 ? "Win" : (actualResult === -1 ? "Loss" : "Draw");
-      const initStr = initialWdl === 1 ? "Win" : (initialWdl === 0 ? "Draw" : "Loss");
-      msg = `${resStr} (Theoretical ${initStr}).`;
-
       if (analysisMode) {
+        const resStr = actualResult === 1 ? "Win" : (actualResult === -1 ? "Loss" : "Draw");
+        const initStr = initialWdl === 1 ? "Win" : (initialWdl === 0 ? "Draw" : "Loss");
+        msg = `${resStr} (Theoretical ${initStr}).`;
         success = true; 
       } else {
         success = (actualResult >= initialWdl);
+        
+        if (actualResult === 1 && initialWdl === 1) {
+           msg = "You won a winning position";
+        } else if (actualResult === 0 && initialWdl === 0) {
+           msg = "You drew a drawn position";
+        } else if (actualResult === -1 && initialWdl === -1) {
+           msg = "The end. It was a lost position";
+        } else {
+           const resStr = actualResult === 1 ? "Win" : (actualResult === -1 ? "Loss" : "Draw");
+           const initStr = initialWdl === 1 ? "Win" : (initialWdl === 0 ? "Draw" : "Loss");
+           msg = `${resStr} (Theoretical ${initStr}).`;
+        }
       }
       
       if (success && !streakInvalidated) { streak++; updateStreak(); setStatus("ok", msg); }
