@@ -723,6 +723,7 @@
           return await res.text();
         } catch (e) {
           clearTimeout(id);
+          mem.delete(url);
           throw e;
         }
       })();
@@ -1092,8 +1093,10 @@
       }
 
       try {
-        const newData = await fetchTablebase(chess.fen());
+        const fenBeforeFetch = chess.fen();
+        const newData = await fetchTablebase(fenBeforeFetch);
         if (localGameId !== gameId) return;
+        if (chess.fen() !== fenBeforeFetch) return; // Race condition check: user used undo
 
         if (isReallyGameOver()) { handleGameOver(); return; }
         if (newData.moves && newData.moves.length > 0) {
@@ -1266,6 +1269,8 @@
           }
         });
       }
+
+      const arrowsToDraw = [];
       for (const m of movesWithWdl) {
         const arrow = uciToArrow(m.uci);
         if (m.wdl === 2 || (hasWinningMove && m.wdl === 0)) continue;
@@ -1275,8 +1280,12 @@
             if (m.dtm !== undefined && Math.abs(m.dtm) <= bestDtm) arrowType = ARROW_WIN;
         }
         else if (moveWdl === 0) arrowType = ARROW_DRAW;
-        else if (moveWdl === -2) arrowType = ARROW_LOSS;
-        if (arrowType) board.addArrow(arrowType, arrow.from, arrow.to);
+        
+        if (arrowType) arrowsToDraw.push({ type: arrowType, from: arrow.from, to: arrow.to });
+      }
+
+      if (arrowsToDraw.length <= 3) {
+        arrowsToDraw.forEach(a => board.addArrow(a.type, a.from, a.to));
       }
     }
 
