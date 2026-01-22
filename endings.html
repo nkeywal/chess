@@ -954,6 +954,7 @@
       try {
         const val = document.getElementById("endgameSelect").value;
         localStorage.setItem("endgame-trainer-selection", val);
+        localStorage.setItem("endgame-trainer-streak", streak);
       } catch(e) { console.warn("Could not save settings", e); }
     }
 
@@ -963,6 +964,11 @@
         if (val) {
           const sel = document.getElementById("endgameSelect");
           if (sel) sel.value = val;
+        }
+        const savedStreak = localStorage.getItem("endgame-trainer-streak");
+        if (savedStreak) {
+           streak = parseInt(savedStreak, 10) || 0;
+           updateStreak();
         }
       } catch(e) { console.warn("Could not load settings", e); }
     }
@@ -1311,7 +1317,10 @@
     }
 
     function setGuessEnabled(en) { el.btnWin.disabled = !en; el.btnDraw.disabled = !en; el.btnLoss.disabled = !en; }
-    function updateStreak() { el.streak.textContent = streak; }
+    function updateStreak() { 
+      el.streak.textContent = streak; 
+      saveSettings();
+    }
     function wdlToString(wdl) { return wdl > 0 ? "Win" : (wdl < 0 ? "Loss" : "Draw"); }
     function updateLinks(fen) { el.analyze.href = `https://lichess.org/analysis/${fen.replace(/ /g, '_')}`; el.analyze.removeAttribute("aria-disabled"); }
 
