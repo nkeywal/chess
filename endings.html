@@ -896,6 +896,10 @@
           setStatus(null, "");
         }
         clearArrows();
+        if (guessLock && currentTbData) {
+           drawOutcomeArrows(currentTbData);
+        }
+
         if (chess.history().length === 0) {
           el.btnUndo.classList.add("hidden");
           el.btnUndo.style.display = 'none';
@@ -1262,14 +1266,15 @@
       const moves = Array.isArray(tbData?.moves) ? tbData.moves : [];
       if (!moves.length) return;
       const movesWithWdl = moves.map(m => ({ ...m, wdl: categoryToWdl(m.category) }));
-      const outcomes = new Set(movesWithWdl.map(m => m.wdl));
-      if (outcomes.size <= 1) return;
+      // Removed outcomes.size check to ensure we display arrows (e.g. fastest mate) 
+      // even if all moves share the same WDL outcome.
+      
       const winningMoves = movesWithWdl.filter(m => m.wdl === -2);
       const hasWinningMove = winningMoves.length > 0;
       let bestDtm = Infinity;
       if (hasWinningMove) {
         winningMoves.forEach(m => {
-          if (m.dtm !== undefined && m.dtm !== null) {
+          if (typeof m.dtm === 'number') {
             const dist = Math.abs(m.dtm);
             if (dist < bestDtm) bestDtm = dist;
           }
@@ -1283,14 +1288,25 @@
         const moveWdl = -m.wdl; 
         let arrowType = null;
         if (moveWdl === 2) {
-            if (m.dtm !== undefined && Math.abs(m.dtm) <= bestDtm) arrowType = ARROW_WIN;
+            // If bestDtm is Infinity (no DTMs found) or current move has optimal DTM, show it.
+            // If current move has no DTM but others do, we might filter it out (strict mode) or keep it.
+            // Let's be permissible: if m.dtm is missing, show it unless we have a specific better DTM.
+            const myDtm = typeof m.dtm === 'number' ? Math.abs(m.dtm) : Infinity;
+            
+            // Show arrow if:
+            // 1. No DTM info available globally (bestDtm is Infinity)
+            // 2. This move matches the best DTM found
+            // 3. This move has no DTM (myDtm Infinity) - fallback to show it
+            if (bestDtm === Infinity || myDtm <= bestDtm) arrowType = ARROW_WIN;
         }
         else if (moveWdl === 0) arrowType = ARROW_DRAW;
         
         if (arrowType) arrowsToDraw.push({ type: arrowType, from: arrow.from, to: arrow.to });
       }
 
-      if (arrowsToDraw.length <= 3) {
+      if (arrowsToDraw.length > 3) {
+        arrowsToDraw.slice(0, 3).forEach(a => board.addArrow(a.type, a.from, a.to));
+      } else {
         arrowsToDraw.forEach(a => board.addArrow(a.type, a.from, a.to));
       }
     }
