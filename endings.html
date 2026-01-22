@@ -754,6 +754,7 @@
     let selectedSquare = null;
     let analysisMode = false;
     let streakInvalidated = false;
+    let guessLock = false;
     let gameId = 0;
     const tbCache = new Map();
 
@@ -885,9 +886,11 @@
         if (analysisMode) {
           const turnStr = chess.turn() === 'w' ? "White" : "Black";
           setStatus(null, `Analysis: ${turnStr} to move.`);
-        } else if (!el.btnWin.disabled) {
+        } else if (!el.btnWin.disabled || guessLock) { 
+          // Show text if guessing is enabled OR if we are locked (buttons disabled but game active)
           const turnStr = chess.turn() === 'w' ? "White" : "Black";
-          setStatus(null, `${turnStr} to move: Evaluate or play.`);
+          const msg = guessLock ? `${turnStr} to move.` : `${turnStr} to move: Evaluate or play.`;
+          setStatus(null, msg);
         } else {
           setStatus(null, "");
         }
@@ -895,7 +898,7 @@
         if (chess.history().length === 0) {
           el.btnUndo.classList.add("hidden");
           el.btnUndo.style.display = 'none';
-          if (!analysisMode) setGuessEnabled(true);
+          if (!analysisMode && !guessLock) setGuessEnabled(true);
         } else {
           el.btnUndo.classList.remove("hidden");
           el.btnUndo.style.display = '';
@@ -976,6 +979,7 @@
       if(el.godModeBtn) el.godModeBtn.classList.remove("active");
       analysisMode = false;
       streakInvalidated = false;
+      guessLock = false;
       setStatus("warn", "Setting up the board...");
       try {
         const fen = await generateValidPosition();
@@ -1065,13 +1069,14 @@
            let msg = "";
 
            if (prevWdl === 2) {
-             if (isDrawingForMe) { failed = true; msg = `It was winning, it is now a draw`; }
-             else if (isLosingForMe) { failed = true; msg = `A winning position is now lost`; }
+             if (isDrawingForMe) { failed = true; msg = `It was winning, it is now a draw.`; }
+             else if (isLosingForMe) { failed = true; msg = `A winning position is now lost.`; }
            } else if (prevWdl === 0 && isLosingForMe) {
-             failed = true; msg = "A drawn position is now lost";
+             failed = true; msg = "A drawn position is now lost.";
            }
            
            if (failed) {
+             guessLock = true;
              chess.undo();
              await board.setPosition(chess.fen(), true);
              if (localGameId !== gameId) return;
@@ -1112,9 +1117,9 @@
 
           isUserTurn = true;
           if (!analysisMode) {
-            setGuessEnabled(true);
             const turnStr = chess.turn() === 'w' ? "White" : "Black";
-            setStatus(null, `${turnStr} to move: Evaluate or play.`);
+            const msg = guessLock ? `${turnStr} to move.` : `${turnStr} to move: Evaluate or play.`;
+            setStatus(null, msg);
           } else setStatus(null, "");
           if (el.btnUndo && chess.history().length > 0) {
             el.btnUndo.classList.remove("hidden");
@@ -1138,6 +1143,7 @@
       } else {
         streak = 0;
         updateStreak();
+        guessLock = true;
         setStatus("bad", `Nope. This was a ${wdlToString(actualWdl)}.`);
       }
       setGuessEnabled(false);
@@ -1167,11 +1173,11 @@
         success = (actualResult >= initialWdl);
         
         if (actualResult === 1 && initialWdl === 1) {
-           msg = "You won a winning position";
+           msg = "You won a winning position.";
         } else if (actualResult === 0 && initialWdl === 0) {
-           msg = "You drew a drawn position";
+           msg = "You drew a drawn position.";
         } else if (actualResult === -1 && initialWdl === -1) {
-           msg = "The end. It was a lost position";
+           msg = "The end. It was a lost position.";
         } else {
            const resStr = actualResult === 1 ? "Win" : (actualResult === -1 ? "Loss" : "Draw");
            const initStr = initialWdl === 1 ? "Win" : (initialWdl === 0 ? "Draw" : "Loss");
@@ -1319,6 +1325,11 @@
     // Close on Escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && modal.classList.contains('open')) closeModal();
+        if (e.key === 'ArrowLeft') {
+           if (el.btnUndo && !el.btnUndo.classList.contains('hidden') && el.btnUndo.style.display !== 'none') {
+             undoLastMove();
+           }
+        }
     });
 
     startNewGame();
