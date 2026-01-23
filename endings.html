@@ -423,13 +423,44 @@
         <div style="display:flex; justify-content:space-between; align-items:center; gap: 10px; padding: 4px 0;">
           <div style="position:relative; display:inline-flex; align-items:center; cursor:pointer;">
             <select id="endgameSelect" style="appearance:none; -webkit-appearance:none; background:transparent; border:none; color:#FFFFFF; font-size:1.4rem; cursor:pointer; padding-right:20px; outline:none; font-family:inherit;">
-              <option value="KP_K" style="background:var(--bg);">♚♟ vs ♔</option>
-              <option value="K_KP" style="background:var(--bg);">♚ vs ♔♙</option>
-              <option value="KP_KR" style="background:var(--bg);">♚♟ vs ♔♖</option>
-              <option value="KR_KP" style="background:var(--bg);">♚♜ vs ♔♙</option>
-              <option value="KRP_KR" style="background:var(--bg);">♚♜♟ vs ♔♖</option>
-              <option value="KR_KRP" style="background:var(--bg);">♚♜ vs ♔♖♙</option>
-              <option value="KBP_KB" style="background:var(--bg);">♚♝♟ vs ♔♗</option>
+              <option value="K_KP" style="background:var(--bg);">♔ vs ♚♟</option>
+
+              <option value="KP_K" style="background:var(--bg);">♔♙ vs ♚</option>
+              <option value="KP_KP" style="background:var(--bg);">♔♙ vs ♚♟</option>
+              <option value="KP_KPP" style="background:var(--bg);">♔♙ vs ♚♟♟</option>
+              <option value="KP_KN" style="background:var(--bg);">♔♙ vs ♚♞</option>
+              <option value="KP_KNP" style="background:var(--bg);">♔♙ vs ♚♞♟</option>
+              <option value="KP_KB" style="background:var(--bg);">♔♙ vs ♚♝</option>
+              <option value="KP_KBP" style="background:var(--bg);">♔♙ vs ♚♝♟</option>
+              <option value="KP_KR" style="background:var(--bg);">♔♙ vs ♚♜</option>
+              <option value="KP_KRP" style="background:var(--bg);">♔♙ vs ♚♜♟</option>
+              <option value="KP_KQ" style="background:var(--bg);">♔♙ vs ♚♛</option>
+              <option value="KP_KQP" style="background:var(--bg);">♔♙ vs ♚♛♟</option>
+
+              <option value="KPP_KN" style="background:var(--bg);">♔♟♟ vs ♚♞</option>
+              <option value="KPP_KB" style="background:var(--bg);">♔♟♟ vs ♚♝</option>
+              <option value="KPP_KR" style="background:var(--bg);">♔♟♟ vs ♚♜</option>
+              <option value="KPP_KQ" style="background:var(--bg);">♔♟♟ vs ♚♛</option>
+
+              <option value="KBP_KB" style="background:var(--bg);">♔♗♟ vs ♚♝</option>
+              <option value="KBP_KR" style="background:var(--bg);">♔♗♟ vs ♚♜</option>
+
+              <option value="KNP_KR" style="background:var(--bg);">♔♘♟ vs ♚♜</option>
+              <option value="KNP_KQ" style="background:var(--bg);">♔♘♟ vs ♚♛</option>
+
+              <option value="KR_KP" style="background:var(--bg);">♔♖ vs ♚♟</option>
+              <option value="KR_KR" style="background:var(--bg);">♔♖ vs ♚♜</option>
+              <option value="KR_KRP" style="background:var(--bg);">♔♖ vs ♚♜♟</option>
+              <option value="KR_KRN" style="background:var(--bg);">♔♖ vs ♚♜♞</option>
+              <option value="KR_KQ" style="background:var(--bg);">♔♖ vs ♚♛</option>
+              <option value="KR_KQP" style="background:var(--bg);">♔♖ vs ♚♛♟</option>
+              <option value="KR_KQR" style="background:var(--bg);">♔♖ vs ♚♛♜</option>
+
+              <option value="KRP_KR" style="background:var(--bg);">♔♖♟ vs ♚♜</option>
+              <option value="KRP_KQ" style="background:var(--bg);">♔♖♟ vs ♚♛</option>
+
+              <option value="KQ_KQ" style="background:var(--bg);">♔♕ vs ♚♛</option>
+              <option value="KQ_KQP" style="background:var(--bg);">♔♕ vs ♚♛♟</option>
             </select>
             <span style="position:absolute; right:0; pointer-events:none; color:#FFFFFF; font-size:0.8rem; margin-top:2px;">▾</span>
           </div>
@@ -967,7 +998,10 @@
         const val = localStorage.getItem("endgame-trainer-selection");
         if (val) {
           const sel = document.getElementById("endgameSelect");
-          if (sel) sel.value = val;
+          // Only set if the option exists
+          if (sel && [...sel.options].some(o => o.value === val)) {
+             sel.value = val;
+          }
         }
         const savedStreak = localStorage.getItem("endgame-trainer-streak");
         if (savedStreak) {
@@ -1312,7 +1346,17 @@
     }
 
     function getSelectedPieces() {
-      const val = document.getElementById("endgameSelect").value;
+      const sel = document.getElementById("endgameSelect");
+      let val = sel.value;
+      if (!val || !val.includes('_')) {
+        // Fallback to first option if value is invalid/empty
+        if (sel.options.length > 0) {
+            val = sel.options[0].value;
+            sel.value = val;
+        } else {
+            return { w: [], b: [] }; // Should not happen
+        }
+      }
       return { w: val.split('_')[0].split(''), b: val.split('_')[1].split('') };
     }
 
