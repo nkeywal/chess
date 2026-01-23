@@ -1180,7 +1180,8 @@
     }
 
     function handleGuess(guessWdl) {
-      if (!gameActive) return;
+      if (!gameActive || !currentTbData || !currentTbData.moves) return;
+      
       drawOutcomeArrows(currentTbData);
       const actualWdl = currentTbData.wdl;
       let correct = (guessWdl === actualWdl);
@@ -1299,50 +1300,51 @@
       clearArrows();
       const moves = Array.isArray(tbData?.moves) ? tbData.moves : [];
       if (!moves.length) return;
-      const movesWithWdl = moves.map(m => ({ ...m, wdl: categoryToWdl(m.category) }));
-      // Removed outcomes.size check to ensure we display arrows (e.g. fastest mate) 
-      // even if all moves share the same WDL outcome.
+
+      const mappedMoves = moves.map(m => ({
+        uci: m.uci,
+        wdl: categoryToWdl(m.category), // -2(Win), 0(Draw), 2(Loss)
+        dtm: typeof m.dtm === 'number' ? Math.abs(m.dtm) : Infinity
+      }));
+
+      const hasWin = mappedMoves.some(m => m.wdl === -2);
+      const hasDraw = mappedMoves.some(m => m.wdl === 0);
+      const hasLoss = mappedMoves.some(m => m.wdl === 2);
+
+      // Rule: Do not show if all options lose (only losses available)
+      if (!hasWin && !hasDraw) return;
       
-      const winningMoves = movesWithWdl.filter(m => m.wdl === -2);
-      const hasWinningMove = winningMoves.length > 0;
-      let bestDtm = Infinity;
-      if (hasWinningMove) {
-        winningMoves.forEach(m => {
-          if (typeof m.dtm === 'number') {
-            const dist = Math.abs(m.dtm);
-            if (dist < bestDtm) bestDtm = dist;
-          }
-        });
-      }
+      // Rule: Do not show if all options draw (only draws available, no win possible)
+      // Note: We implies !hasWin. If we had a win, we would show it.
+      if (!hasWin && !hasLoss) return;
 
-      const arrowsToDraw = [];
-      for (const m of movesWithWdl) {
-        const arrow = uciToArrow(m.uci);
-        if (m.wdl === 2 || (hasWinningMove && m.wdl === 0)) continue;
-        const moveWdl = -m.wdl; 
-        let arrowType = null;
-        if (moveWdl === 2) {
-            // If bestDtm is Infinity (no DTMs found) or current move has optimal DTM, show it.
-            // If current move has no DTM but others do, we might filter it out (strict mode) or keep it.
-            // Let's be permissible: if m.dtm is missing, show it unless we have a specific better DTM.
-            const myDtm = typeof m.dtm === 'number' ? Math.abs(m.dtm) : Infinity;
-            
-            // Show arrow if:
-            // 1. No DTM info available globally (bestDtm is Infinity)
-            // 2. This move matches the best DTM found
-            // 3. This move has no DTM (myDtm Infinity) - fallback to show it
-            if (bestDtm === Infinity || myDtm <= bestDtm) arrowType = ARROW_WIN;
-        }
-        else if (moveWdl === 0) arrowType = ARROW_DRAW;
+      let candidates = [];
+
+      if (hasWin) {
+        // Rule: For wins, show only best DTM
+        const wins = mappedMoves.filter(m => m.wdl === -2);
+        let bestDtm = Infinity;
         
-        if (arrowType) arrowsToDraw.push({ type: arrowType, from: arrow.from, to: arrow.to });
+        wins.forEach(m => {
+           if (m.dtm < bestDtm) bestDtm = m.dtm;
+        });
+
+        // Filter by best DTM (if DTM info is missing/Infinity, show all wins)
+        candidates = wins.filter(m => bestDtm === Infinity || m.dtm === bestDtm)
+                         .map(m => ({ ...uciToArrow(m.uci), type: ARROW_WIN }));
+      } else {
+        // No win exists, but we have draws (and losses, otherwise we returned above).
+        // Show saving moves (Draws).
+        candidates = mappedMoves.filter(m => m.wdl === 0)
+                                .map(m => ({ ...uciToArrow(m.uci), type: ARROW_DRAW }));
       }
 
-      if (arrowsToDraw.length > 3) {
-        arrowsToDraw.slice(0, 3).forEach(a => board.addArrow(a.type, a.from, a.to));
-      } else {
-        arrowsToDraw.forEach(a => board.addArrow(a.type, a.from, a.to));
+      // Rule: Limit to first 3
+      if (candidates.length > 3) {
+        candidates = candidates.slice(0, 3);
       }
+
+      candidates.forEach(a => board.addArrow(a.type, a.from, a.to));
     }
 
     function getSelectedPieces() {
