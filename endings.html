@@ -902,7 +902,7 @@
       });
     }
 
-    async function undoLastMove() {
+    async function undoLastMove(updateStatus = true) {
       if (chess.turn() === 'b') chess.undo();
       else { chess.undo(); chess.undo(); }
       currentFen = chess.fen();
@@ -911,17 +911,20 @@
         currentTbData = await fetchTablebase(currentFen);
         gameActive = true;
         isUserTurn = true;
-        if (analysisMode) {
-          const turnStr = chess.turn() === 'w' ? "White" : "Black";
-          setStatus(null, `Analysis: ${turnStr} to move.`);
-        } else if (!el.btnWin.disabled || guessLock) { 
-          // Show text if guessing is enabled OR if we are locked (buttons disabled but game active)
-          const turnStr = chess.turn() === 'w' ? "White" : "Black";
-          const msg = guessLock ? `${turnStr} to move.` : `${turnStr} to move: Evaluate or play.`;
-          setStatus(null, msg);
-        } else {
-          setStatus(null, "");
+        
+        if (updateStatus) {
+            if (analysisMode) {
+              const turnStr = chess.turn() === 'w' ? "White" : "Black";
+              setStatus(null, `Analysis: ${turnStr} to move.`);
+            } else if (!el.btnWin.disabled || guessLock) { 
+              const turnStr = chess.turn() === 'w' ? "White" : "Black";
+              const msg = guessLock ? `${turnStr} to move.` : `${turnStr} to move: Evaluate or play.`;
+              setStatus(null, msg);
+            } else {
+              setStatus(null, "");
+            }
         }
+        
         clearArrows();
         if (guessLock && currentTbData) {
            drawOutcomeArrows(currentTbData);
@@ -1132,11 +1135,15 @@
         }
       }
 
+      currentTbData = null;
+
       try {
         const fenBeforeFetch = chess.fen();
         const newData = await fetchTablebase(fenBeforeFetch);
         if (localGameId !== gameId) return;
         if (chess.fen() !== fenBeforeFetch) return; // Race condition check: user used undo
+
+        currentTbData = newData;
 
         if (isReallyGameOver()) { handleGameOver(); return; }
         if (newData.moves && newData.moves.length > 0) {
@@ -1175,22 +1182,40 @@
       }
     }
 
-    function handleGuess(guessWdl) {
-      if (!gameActive || !currentTbData || !currentTbData.moves) return;
+    async function handleGuess(guessWdl) {
+      if (!gameActive) return;
       
-      drawOutcomeArrows(currentTbData);
-      const actualWdl = currentTbData.wdl;
-      let correct = (guessWdl === actualWdl);
-      if (correct) {
-        if (!streakInvalidated) { streak++; updateStreak(); }
-        setStatus("ok", `Spot on! This is indeed a ${wdlToString(actualWdl)}.`);
-      } else {
-        streak = 0;
-        updateStreak();
-        guessLock = true;
-        setStatus("bad", `Nope. This was a ${wdlToString(actualWdl)}.`);
+      try {
+          // If data is loading (user played, computer thinking), undo to evaluate the previous position.
+          if (!currentTbData || !currentTbData.moves) {
+             await undoLastMove(false);
+          }
+          
+          if (!currentTbData) return; 
+
+          const actualWdl = currentTbData.wdl;
+          const correct = (guessWdl === actualWdl);
+          
+          // Update UI state first
+          setGuessEnabled(false);
+          
+          if (correct) {
+            if (!streakInvalidated) { streak++; updateStreak(); }
+            setStatus("ok", `Spot on! This is indeed a ${wdlToString(actualWdl)}.`);
+          } else {
+            streak = 0;
+            updateStreak();
+            guessLock = true;
+            setStatus("bad", `Nope. This was a ${wdlToString(actualWdl)}.`);
+          }
+
+          // Then draw arrows (might fail or take time)
+          drawOutcomeArrows(currentTbData);
+          
+      } catch (e) {
+          console.error("Error in handleGuess:", e);
+          setStatus("bad", "Error processing guess.");
       }
-      setGuessEnabled(false);
     }
 
     async function handleGameOver() {
