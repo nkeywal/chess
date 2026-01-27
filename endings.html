@@ -422,40 +422,6 @@
         <div style="display:flex; justify-content:space-between; align-items:center; gap: 10px; padding: 4px 0;">
           <div style="position:relative; display:inline-flex; align-items:center; cursor:pointer;">
             <select id="endgameSelect" style="appearance:none; -webkit-appearance:none; background:transparent; border:none; color:#FFFFFF; font-size:1.4rem; cursor:pointer; padding-right:20px; outline:none; font-family:inherit;">
-              <option value="K_KP" style="background:var(--bg);">K_KP</option>
-
-              <option value="KP_K" style="background:var(--bg);">KP_K</option>
-              <option value="KP_KP" style="background:var(--bg);">KP_KP</option>
-              <option value="KP_KPP" style="background:var(--bg);">KP_KPP</option>
-              <option value="KP_KN" style="background:var(--bg);">KP_KN</option>
-              <option value="KP_KNP" style="background:var(--bg);">KP_KNP</option>
-              <option value="KP_KBP" style="background:var(--bg);">KP_KBP</option>
-              <option value="KP_KR" style="background:var(--bg);">KP_KR</option>
-              <option value="KP_KRP" style="background:var(--bg);">KP_KRP</option>
-              <option value="KP_KQ" style="background:var(--bg);">KP_KQ</option>
-              <option value="KP_KQP" style="background:var(--bg);">KP_KQP</option>
-
-              <option value="KPP_KN" style="background:var(--bg);">KPP_KN</option>
-              <option value="KPP_KB" style="background:var(--bg);">KPP_KB</option>
-              <option value="KPP_KR" style="background:var(--bg);">KPP_KR</option>
-              <option value="KPP_KQ" style="background:var(--bg);">KPP_KQ</option>
-
-              <option value="KBP_KB" style="background:var(--bg);">KBP_KB</option>
-              <option value="KBP_KR" style="background:var(--bg);">KBP_KR</option>
-
-              <option value="KNP_KR" style="background:var(--bg);">KNP_KR</option>
-              <option value="KNP_KQ" style="background:var(--bg);">KNP_KQ</option>
-
-              <option value="KR_KP" style="background:var(--bg);">KR_KP</option>
-              <option value="KR_KRP" style="background:var(--bg);">KR_KRP</option>
-              <option value="KR_KRN" style="background:var(--bg);">KR_KRN</option>
-              <option value="KR_KQP" style="background:var(--bg);">KR_KQP</option>
-              <option value="KR_KQR" style="background:var(--bg);">KR_KQR</option>
-
-              <option value="KRP_KR" style="background:var(--bg);">KRP_KR</option>
-              <option value="KRP_KQ" style="background:var(--bg);">KRP_KQ</option>
-
-              <option value="KQ_KQP" style="background:var(--bg);">KQ_KQP</option>
             </select>
             <span style="position:absolute; right:0; pointer-events:none; color:#FFFFFF; font-size:0.8rem; margin-top:2px;">▾</span>
           </div>
@@ -1418,19 +1384,26 @@
       return `${left} vs ${right}`;
     }
 
-    function applyEndgameSelectLabels() {
+    async function populateEndgameOptions() {
       const sel = document.getElementById("endgameSelect");
       if (!sel) return;
-
-      for (const opt of sel.options) {
-        const label = generateEndgameLabel(opt.value);
-        if (label) opt.textContent = label;
-      }
+      try {
+        const m = await getManifest();
+        const files = Object.keys(m.files).sort();
+        sel.innerHTML = "";
+        for (const f of files) {
+          if (!f.endsWith(".txt")) continue;
+          const val = f.replace(".txt", "");
+          const opt = document.createElement("option");
+          opt.value = val;
+          opt.style.background = "var(--bg)";
+          const label = generateEndgameLabel(val);
+          opt.textContent = label || val;
+          sel.appendChild(opt);
+        }
+      } catch (e) { console.error(e); }
     }
 
-    applyEndgameSelectLabels();
-
-    loadSettings();
     document.getElementById('endgameSelect').addEventListener('change', () => { saveSettings(); startNewGame(); });
     
     // Info Modal Logic
@@ -1456,7 +1429,11 @@
         }
     });
 
-    startNewGame();
+    (async function init() {
+        await populateEndgameOptions();
+        loadSettings();
+        startNewGame();
+    })();
   </script>
 </body>
 </html>
