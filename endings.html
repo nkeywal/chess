@@ -1429,7 +1429,11 @@
       } catch (e) { console.error(e); }
     }
 
-    document.getElementById('endgameSelect').addEventListener('change', () => { saveSettings(); startNewGame(); });
+    document.getElementById('endgameSelect').addEventListener('change', (e) => { 
+        saveSettings(); 
+        startNewGame(); 
+        e.target.blur();
+    });
     
     // Info Modal Logic
     const modal = document.getElementById('infoModal');
