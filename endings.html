@@ -1115,9 +1115,11 @@
              await board.setPosition(chess.fen(), true);
              if (localGameId !== gameId) return;
              
-             streak = 0;
-             streakInvalidated = true;
-             updateStreak();
+             if (!streakInvalidated) {
+                 streak = 0;
+                 streakInvalidated = true;
+                 updateStreak();
+             }
              setStatus("bad", msg);
              setGuessEnabled(false);
              
@@ -1211,9 +1213,11 @@
             }
             setStatus("ok", `Spot on! This is indeed a ${wdlToString(actualWdl)}.`);
           } else {
-            streak = 0;
-            updateStreak();
-            streakInvalidated = true;
+            if (!streakInvalidated) {
+                streak = 0;
+                streakInvalidated = true;
+                updateStreak();
+            }
             guessLock = true;
             setStatus("bad", `Nope. This was a ${wdlToString(actualWdl)}.`);
           }
@@ -1269,7 +1273,7 @@
         setStatus("ok", msg); 
       }
       else { 
-        if (!success) {
+        if (!success && !streakInvalidated) {
            streak = 0; 
            updateStreak(); 
         }
