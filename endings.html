@@ -801,6 +801,8 @@
 
     board.enableMoveInput((event) => {
       if (!isUserTurn || !gameActive) return false;
+      if (event.type === "moveInputStarted") clearArrows();
+      
       switch (event.type) {
         case "moveInputStarted":
           const p = chess.get(event.square);
@@ -876,6 +878,7 @@
         el.godModeBtn.classList.add("active");
         selectSquare(null);
         clearArrows();
+        guessLock = false;
         setStatus("warn", "Loading analysis...");
         try {
           currentFen = chess.fen();
@@ -898,6 +901,11 @@
       else { chess.undo(); chess.undo(); }
       currentFen = chess.fen();
       await board.setPosition(currentFen, true);
+      
+      // User performed an undo: reset error states and clear arrows
+      guessLock = false;
+      clearArrows();
+
       try {
         currentTbData = await fetchTablebase(currentFen);
         gameActive = true;
@@ -907,24 +915,15 @@
             if (analysisMode) {
               const turnStr = chess.turn() === 'w' ? "White" : "Black";
               setStatus(null, `Analysis: ${turnStr} to move.`);
-            } else if (!el.btnWin.disabled || guessLock) { 
-              const turnStr = chess.turn() === 'w' ? "White" : "Black";
-              const msg = guessLock ? `${turnStr} to move.` : `${turnStr} to move: Evaluate or play.`;
-              setStatus(null, msg);
             } else {
-              setStatus(null, "");
+              const turnStr = chess.turn() === 'w' ? "White" : "Black";
+              setStatus(null, `${turnStr} to move.`);
             }
         }
         
-        clearArrows();
-        if (guessLock && currentTbData) {
-           drawOutcomeArrows(currentTbData);
-        }
-
         if (chess.history().length === 0) {
           el.btnUndo.classList.add("hidden");
           el.btnUndo.style.display = 'none';
-          if (!analysisMode && !guessLock) setGuessEnabled(true);
         } else {
           el.btnUndo.classList.remove("hidden");
           el.btnUndo.style.display = '';
@@ -1115,11 +1114,25 @@
              chess.undo();
              await board.setPosition(chess.fen(), true);
              if (localGameId !== gameId) return;
+             
+             streak = 0;
+             streakInvalidated = true;
+             updateStreak();
+             setStatus("bad", msg);
+             setGuessEnabled(false);
+             
+             // Allow user to retry immediately
+             gameActive = true;
+             isUserTurn = true;
+             
              drawOutcomeArrows(currentTbData);
-             endGame(false, msg);
-             if (el.btnUndo) {
+             
+             if (chess.history().length > 0) {
                el.btnUndo.classList.remove("hidden");
                el.btnUndo.style.display = '';
+             } else {
+               el.btnUndo.classList.add("hidden");
+               el.btnUndo.style.display = 'none';
              }
              return; // Stop here: don't fetch anything if the user blundered.
            }
@@ -1191,11 +1204,16 @@
           setGuessEnabled(false);
           
           if (correct) {
-            if (!streakInvalidated) { streak++; updateStreak(); }
+            if (!streakInvalidated) { 
+              streak++; 
+              streakInvalidated = true; 
+              updateStreak(); 
+            }
             setStatus("ok", `Spot on! This is indeed a ${wdlToString(actualWdl)}.`);
           } else {
             streak = 0;
             updateStreak();
+            streakInvalidated = true;
             guessLock = true;
             setStatus("bad", `Nope. This was a ${wdlToString(actualWdl)}.`);
           }
@@ -1245,9 +1263,23 @@
         }
       }
       
-      if (success && !streakInvalidated) { streak++; updateStreak(); setStatus("ok", msg); }
-      else { streak = 0; updateStreak(); setStatus("bad", msg); }
-      endGame(success, msg);
+      if (success && !streakInvalidated) { 
+        streak++; 
+        updateStreak(); 
+        setStatus("ok", msg); 
+      }
+      else { 
+        if (!success) {
+           streak = 0; 
+           updateStreak(); 
+        }
+        setStatus(success ? "ok" : "bad", msg); 
+      }
+      
+      streakInvalidated = true;
+      gameActive = false;
+      isUserTurn = false;
+      setGuessEnabled(false);
     }
 
     function endGame(success, msg) {
