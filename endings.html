@@ -940,7 +940,7 @@
         if (analysisMode && currentTbData && currentTbData.moves) {
           const moves = currentTbData.moves.filter(m => m.uci.startsWith(selectedSquare));
           let bestDtmForSquare = Infinity;
-          const winningMoves = moves.filter(m => categoryToWdl(m.category) === -2);
+          const winningMoves = moves.filter(m => tbMoveCategoryToMoverWdl(m.category) === -2);
           winningMoves.forEach(m => {
             if (m.dtm !== undefined && m.dtm !== null) {
               const dist = Math.abs(m.dtm);
@@ -950,19 +950,19 @@
           const destMap = new Map();
           moves.forEach(m => {
             const dest = m.uci.slice(2, 4);
-            const wdl = categoryToWdl(m.category);
+            const moverWdl = tbMoveCategoryToMoverWdl(m.category);
             const dtm = m.dtm !== undefined && m.dtm !== null ? Math.abs(m.dtm) : Infinity;
-            if (!destMap.has(dest)) destMap.set(dest, {wdl, dtm});
+            if (!destMap.has(dest)) destMap.set(dest, {moverWdl, dtm});
             else {
               const current = destMap.get(dest);
-              if (wdl < current.wdl) destMap.set(dest, {wdl, dtm});
-              else if (wdl === current.wdl && dtm < current.dtm) destMap.set(dest, {wdl, dtm});
+              if (moverWdl < current.moverWdl) destMap.set(dest, {moverWdl, dtm});
+              else if (moverWdl === current.moverWdl && dtm < current.dtm) destMap.set(dest, {moverWdl, dtm});
             }
           });
           destMap.forEach((data, dest) => {
             let markerDef = MARKER_GOD_DRAW;
-            if (data.wdl === -2) markerDef = MARKER_GOD_WIN;
-            else if (data.wdl === 2) markerDef = MARKER_GOD_LOSS;
+            if (data.moverWdl === -2) markerDef = MARKER_GOD_WIN;
+            else if (data.moverWdl === 2) markerDef = MARKER_GOD_LOSS;
             const marker = { ...markerDef };
             if (data.dtm !== undefined && data.dtm !== Infinity) marker.dtm = data.dtm;
             overlayMarkers.add(marker, dest);
@@ -1154,9 +1154,9 @@
         if (isReallyGameOver()) { handleGameOver(); return; }
         if (newData.moves && newData.moves.length > 0) {
           let bestMove = newData.moves[0];
-          const bestWdl = categoryToWdl(bestMove.category);
-          if (bestWdl === 0) {
-            const drawMoves = newData.moves.filter(m => categoryToWdl(m.category) === 0);
+          const bestMoverWdl = tbMoveCategoryToMoverWdl(bestMove.category);
+          if (bestMoverWdl === 0) {
+            const drawMoves = newData.moves.filter(m => tbMoveCategoryToMoverWdl(m.category) === 0);
             const nonCapture = drawMoves.find(m => m.san && !m.san.includes('x'));
             if (nonCapture) bestMove = nonCapture;
           }
@@ -1336,12 +1336,30 @@
 
     function clearArrows() { if (typeof board.removeArrows === "function") board.removeArrows(); }
     function uciToArrow(uci) { return { from: uci.slice(0, 2), to: uci.slice(2, 4) }; }
-    function categoryToWdl(category) {
+    
+    /**
+     * Converts a move's category (from tablebase) to a WDL score from the perspective 
+     * of the player making the move ("mover").
+     *
+     * Contract:
+     * - moves[i].category is the result for the side to move AFTER the move.
+     * - "loss" for the next player means "win" for the mover.
+     * - "win" for the next player means "loss" for the mover.
+     *
+     * Returns:
+     * - -2: Mover wins (Best outcome)
+     * -  0: Draw
+     * -  2: Mover loses (Worst outcome)
+     */
+    function tbMoveCategoryToMoverWdl(category) {
       const c = String(category || "").toLowerCase();
-      if (c.includes("win")) return 2;
-      if (c.includes("loss")) return -2;
+      if (c.includes("loss")) return -2; // Opponent loses -> Mover wins
       if (c.includes("draw")) return 0;
-      return null;
+      if (c.includes("win")) return 2;   // Opponent wins -> Mover loses
+      
+      // Fallback/Error case - prevent silent failures
+      console.warn(`Unknown category: ${category}. Defaulting to draw (0).`);
+      return 0;
     }
 
     function drawOutcomeArrows(tbData) {
@@ -1351,13 +1369,13 @@
 
       const mappedMoves = moves.map(m => ({
         uci: m.uci,
-        wdl: categoryToWdl(m.category), // -2(Win), 0(Draw), 2(Loss)
+        moverWdl: tbMoveCategoryToMoverWdl(m.category), // -2(Win), 0(Draw), 2(Loss)
         dtm: typeof m.dtm === 'number' ? Math.abs(m.dtm) : Infinity
       }));
 
-      const hasWin = mappedMoves.some(m => m.wdl === -2);
-      const hasDraw = mappedMoves.some(m => m.wdl === 0);
-      const hasLoss = mappedMoves.some(m => m.wdl === 2);
+      const hasWin = mappedMoves.some(m => m.moverWdl === -2);
+      const hasDraw = mappedMoves.some(m => m.moverWdl === 0);
+      const hasLoss = mappedMoves.some(m => m.moverWdl === 2);
 
       // Rule: Do not show if all options lose (only losses available)
       if (!hasWin && !hasDraw) return;
@@ -1370,7 +1388,7 @@
 
       if (hasWin) {
         // Rule: For wins, show only best DTM
-        const wins = mappedMoves.filter(m => m.wdl === -2);
+        const wins = mappedMoves.filter(m => m.moverWdl === -2);
         let bestDtm = Infinity;
         
         wins.forEach(m => {
@@ -1383,7 +1401,7 @@
       } else {
         // No win exists, but we have draws (and losses, otherwise we returned above).
         // Show saving moves (Draws).
-        candidates = mappedMoves.filter(m => m.wdl === 0)
+        candidates = mappedMoves.filter(m => m.moverWdl === 0)
                                 .map(m => ({ ...uciToArrow(m.uci), type: ARROW_DRAW }));
       }
 
