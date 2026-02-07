@@ -513,6 +513,77 @@ async function handleUserMove(from, to, promotion = 'q') {
   return true;
 }
 
+// --- Computer Move Selection Engine ---
+
+const MovePolicies = {
+    registry: {}, // key: endgameKey, value: policyFn
+
+    register(key, fn) {
+        this.registry[key] = fn;
+    },
+
+    getPolicy(key) {
+        return this.registry[key] || this.defaultPolicy;
+    },
+
+    /**
+     * Default policy: matches original behavior.
+     * 1. Pick first move from tablebase (Lichess returns best moves first).
+     * 2. If it's a draw, try to find a non-capture draw (tie-break).
+     */
+    defaultPolicy(input) {
+        const { tbData } = input;
+        if (!tbData || !tbData.moves || tbData.moves.length === 0) return null;
+
+        let bestMove = tbData.moves[0];
+        const bestMoverWdl = tbMoveCategoryToMoverWdl(bestMove.category);
+        
+        // Default behavior: if best move is draw, prefer non-capture draw
+        if (bestMoverWdl === 0) {
+            const drawMoves = tbData.moves.filter(m => tbMoveCategoryToMoverWdl(m.category) === 0);
+            const nonCapture = drawMoves.find(m => m.san && !m.san.includes('x'));
+            if (nonCapture) bestMove = nonCapture;
+        }
+        return bestMove;
+    }
+};
+
+/**
+ * Main entry point for selecting the computer's move.
+ * Dispatches to specialized policies based on endgameKey.
+ */
+function selectComputerMove(input) {
+    const { endgameKey, tbData } = input;
+    
+    // Safety check
+    if (!tbData || !tbData.moves || tbData.moves.length === 0) {
+        return null;
+    }
+
+    const policy = MovePolicies.getPolicy(endgameKey);
+    let selectedMove = null;
+
+    try {
+        selectedMove = policy(input);
+    } catch (e) {
+        console.error("Policy error, falling back to default:", e);
+    }
+
+    // Fallback if policy failed or returned null
+    if (!selectedMove) {
+        selectedMove = MovePolicies.defaultPolicy(input);
+    }
+
+    // Invariant check: selected move must be in tbData.moves
+    const isValid = selectedMove && tbData.moves.some(m => m.uci === selectedMove.uci);
+    if (!isValid) {
+        console.warn("Selected move not in legal moves, falling back.");
+        selectedMove = MovePolicies.defaultPolicy(input);
+    }
+
+    return selectedMove;
+}
+
 async function handleUserMovePostProcess(lastMove) {
   const localGameId = gameId;
   if (analysisMode) {
@@ -611,33 +682,43 @@ async function handleUserMovePostProcess(lastMove) {
 
     if (isReallyGameOver()) { handleGameOver(); return; }
     if (newData.moves && newData.moves.length > 0) {
-      let bestMove = newData.moves[0];
-      const bestMoverWdl = tbMoveCategoryToMoverWdl(bestMove.category);
-      if (bestMoverWdl === 0) {
-        const drawMoves = newData.moves.filter(m => tbMoveCategoryToMoverWdl(m.category) === 0);
-        const nonCapture = drawMoves.find(m => m.san && !m.san.includes('x'));
-        if (nonCapture) bestMove = nonCapture;
-      }
-      const uci = bestMove.uci;
-      const promoC = uci.length > 4 ? uci[4] : undefined;
-      chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: promoC || 'q' });
-      await board.setPosition(chess.fen(), true);
-      if (localGameId !== gameId) return;
+      const endgameKey = document.getElementById("endgameSelect").value;
+      const input = {
+          endgameKey,
+          fen: chess.fen(),
+          tbData: newData,
+          context: {
+              history: chess.history({ verbose: true }),
+              gameMode: analysisMode ? 'analysis' : 'normal'
+          }
+      };
 
-      if (isReallyGameOver()) { handleGameOver(); return; }
-      currentFen = chess.fen();
-      currentTbData = await fetchTablebase(currentFen);
-      if (localGameId !== gameId) return;
+      const bestMove = selectComputerMove(input);
 
-      isUserTurn = true;
-      if (!analysisMode) {
-        const turnStr = chess.turn() === 'w' ? "White" : "Black";
-        const msg = guessLock ? `${turnStr} to move.` : `${turnStr} to move: Evaluate or play.`;
-        setStatus(null, msg);
-      } else setStatus(null, "");
-      if (el.btnUndo && chess.history().length > 0) {
-        el.btnUndo.classList.remove("hidden");
-        el.btnUndo.style.display = '';
+      if (bestMove) {
+          const uci = bestMove.uci;
+          const promoC = uci.length > 4 ? uci[4] : undefined;
+          chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: promoC || 'q' });
+          await board.setPosition(chess.fen(), true);
+          if (localGameId !== gameId) return;
+
+          if (isReallyGameOver()) { handleGameOver(); return; }
+          currentFen = chess.fen();
+          currentTbData = await fetchTablebase(currentFen);
+          if (localGameId !== gameId) return;
+
+          isUserTurn = true;
+          if (!analysisMode) {
+            const turnStr = chess.turn() === 'w' ? "White" : "Black";
+            const msg = guessLock ? `${turnStr} to move.` : `${turnStr} to move: Evaluate or play.`;
+            setStatus(null, msg);
+          } else setStatus(null, "");
+          if (el.btnUndo && chess.history().length > 0) {
+            el.btnUndo.classList.remove("hidden");
+            el.btnUndo.style.display = '';
+          }
+      } else {
+         handleGameOver();
       }
     } else handleGameOver();
   } catch (e) {
