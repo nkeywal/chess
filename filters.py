@@ -15,6 +15,11 @@ from kbp_vs_kb import (
     gen_hints_kbp_vs_kb,
 )
 from kp_vs_k import filter_notb_kp_vs_k, filter_tb_kp_vs_k
+from kp_vs_kp import (
+    filter_notb_kp_vs_kp,
+    filter_tb_kp_vs_kp,
+    gen_hints_kp_vs_kp,
+)
 from kp_vs_kr import filter_notb_kp_vs_kr, filter_tb_kp_vs_kr
 from kr_vs_kp import filter_notb_kr_vs_kp, filter_tb_kr_vs_kp
 from kr_vs_krp import (
