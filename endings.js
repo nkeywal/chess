@@ -8,6 +8,7 @@ import { Chessboard, COLOR, BORDER_TYPE } from "https://cdn.jsdelivr.net/npm/cm-
 import { Arrows, ARROW_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/extensions/arrows/Arrows.js";
 import { PromotionDialog } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/extensions/promotion-dialog/PromotionDialog.js";
 import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.7/+esm";
+import { krKrpPolicy } from "./policy_kr_krp.js";
 
 class OverlayMarkers {
   constructor(chessboard, containerEl) {
@@ -547,6 +548,8 @@ const MovePolicies = {
         return bestMove;
     }
 };
+
+MovePolicies.register("KR_KRP", krKrpPolicy);
 
 /**
  * Main entry point for selecting the computer's move.
