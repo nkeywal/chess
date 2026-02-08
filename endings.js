@@ -1037,6 +1037,37 @@ document.getElementById('endgameSelect').addEventListener('change', (e) => {
 const modal = document.getElementById('infoModal');
 const btnInfo = document.getElementById('btnInfo');
 const btnCloseInfo = document.getElementById('btnCloseInfo');
+const btnShare = document.getElementById('btnShare');
+
+if (btnShare) {
+  btnShare.addEventListener('click', async () => {
+    const url = 'https://nkeywal.github.io/chess/trivial_endings.html';
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Trivial Endgames',
+          text: 'These endgames are trivial.',
+          url: url
+        });
+      } catch (err) {
+        if (err.name !== 'AbortError') console.warn("Share failed", err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        const oldStatus = el.status.textContent;
+        const oldClass = el.status.className;
+        setStatus("ok", "Link copied to clipboard!");
+        setTimeout(() => {
+          el.status.textContent = oldStatus;
+          el.status.className = oldClass;
+        }, 2000);
+      } catch (err) {
+        console.error("Clipboard failed", err);
+      }
+    }
+  });
+}
 
 function openModal() { modal.classList.add('open'); }
 function closeModal() { modal.classList.remove('open'); }
