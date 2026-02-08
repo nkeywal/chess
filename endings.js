@@ -9,6 +9,7 @@ import { Arrows, ARROW_TYPE } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8
 import { PromotionDialog } from "https://cdn.jsdelivr.net/npm/cm-chessboard@8.11.5/src/extensions/promotion-dialog/PromotionDialog.js";
 import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.7/+esm";
 import { krKrpPolicy } from "./policy_kr_krp.js";
+import { kpKpPolicy } from "./policy_kp_kp.js";
 
 class OverlayMarkers {
   constructor(chessboard, containerEl) {
@@ -550,6 +551,7 @@ const MovePolicies = {
 };
 
 MovePolicies.register("KR_KRP", krKrpPolicy);
+MovePolicies.register("KP_KP", kpKpPolicy);
 
 /**
  * Main entry point for selecting the computer's move.
