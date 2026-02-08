@@ -8,13 +8,13 @@ from typing import Any, Mapping
 import chess
 
 from helpers import mask_files, mask_ranks
-from k_vs_kp import filter_notb_k_vs_kp, filter_tb_k_vs_kp
+from k_vs_kp import filter_notb_k_vs_kp, filter_tb_k_vs_kp, gen_hints_k_vs_kp
 from kbp_vs_kb import (
     filter_notb_kbp_vs_kb,
     filter_tb_kbp_vs_kb,
     gen_hints_kbp_vs_kb,
 )
-from kp_vs_k import filter_notb_kp_vs_k, filter_tb_kp_vs_k
+from kp_vs_k import filter_notb_kp_vs_k, filter_tb_kp_vs_k, gen_hints_kp_vs_k
 from kp_vs_kp import (
     filter_notb_kp_vs_kp,
     filter_tb_kp_vs_kp,
