@@ -11,7 +11,7 @@ import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.7/+esm";
 import { krKrpPolicy } from "./policy_kr_krp.js";
 import { kpKpPolicy } from "./policy_kp_kp.js";
 import { krpKrPolicy } from "./policy_krp_kr.js";
-import { krKpPolicy } from "./policy_kr_kp_v2.js";
+import { krKpPolicy } from "./policy_kr_kp.js";
 
 class OverlayMarkers {
   constructor(chessboard, containerEl) {
