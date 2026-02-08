@@ -2,7 +2,10 @@ import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0-beta.7/+esm";
 
 // KR_KRP policy (computer plays Black): White has K+R, Black has K+R+P.
 // In winning/losing positions, dtm is always available.
+// In draws, dtm is not used; we rely on local (1-ply) tactical/safety checks.
 
+// If the losing side has multiple losing moves, ignore the low-DTM "collapse tail"
+// when there is a clear DTM gap.
 const GAP_BREAK = 12;
 
 // --- Helpers ---
@@ -11,9 +14,9 @@ const GAP_BREAK = 12;
 // Convert it to the mover's result.
 function getMoverResult(category) {
   const cat = (category || "").toLowerCase();
-  if (cat.includes("loss")) return "WIN";  // opponent loses => mover wins
+  if (cat.includes("loss")) return "WIN";   // opponent loses => mover wins
   if (cat.includes("draw")) return "DRAW";
-  if (cat.includes("win"))  return "LOSS"; // opponent wins => mover loses
+  if (cat.includes("win"))  return "LOSS";  // opponent wins => mover loses
   return "DRAW";
 }
 
@@ -86,6 +89,12 @@ function rookAttacksSquare(chess, rookSq, targetSq) {
 // --- Feature Extraction (local, 1-ply only) ---
 
 function analyzePosition(fen, moveUci) {
+  // Pre-move king->pawn distance for king-move usefulness.
+  const chessPre = new Chess(fen);
+  const BK0 = findPieceSquare(chessPre, "b", "k");
+  const BP0 = findPieceSquare(chessPre, "b", "p");
+  const preKingPawnDist = (BK0 && BP0) ? kdist(BK0, BP0) : Infinity;
+
   const chess = new Chess(fen);
 
   const from = moveUci.slice(0, 2);
@@ -101,7 +110,6 @@ function analyzePosition(fen, moveUci) {
   const BK = findPieceSquare(chess, "b", "k");
   const BR = findPieceSquare(chess, "b", "r");
   const BP = findPieceSquare(chess, "b", "p");
-
   if (!WK || !WR || !BK || !BR || !BP) return null;
 
   const pawnFile = getFile(BP);
@@ -109,17 +117,26 @@ function analyzePosition(fen, moveUci) {
 
   const whiteMoves = chess.moves({ verbose: true });
 
-  // Immediate captures of Black rook (including rook trade)
+  // Immediate captures of Black rook (includes king captures and rook captures).
   const R_hang = whiteMoves.some(w => w.to === BR);
-  const Trade  = whiteMoves.some(w => w.piece === "r" && w.to === BR);
 
-  // Pawn is "safely" capturable by White if there exists a capture of BP such that
-  // Black has no immediate refutation that wins White's rook NET (i.e. captures WR
-  // and White cannot immediately capture Black's rook afterwards).
-  let PawnTakeSafe = false;
+  // Immediate rook trade offered: White rook can capture Black rook now.
+  const Trade = whiteMoves.some(w => w.piece === "r" && w.to === BR);
+
+  // Pawn capture safety:
+  // A pawn capture is considered "safe" for White if there exists a capture of BP such that
+  // Black has no immediate refutation that wins White's rook NET (i.e. captures WR and White
+  // cannot immediately capture Black's rook afterwards).
+  //
+  // We track separately whether a SAFE king-capture exists (KxP), because that is usually the
+  // simplest human plan in draws and should be avoided if possible.
+  let PawnTakeSafe = false;        // any safe pawn capture exists (king or rook)
+  let PawnKingTakeSafe = false;    // a safe KxP exists
+
   const pawnCaptures = whiteMoves.filter(w => w.to === BP);
-
   for (const wMove of pawnCaptures) {
+    const isKingCapture = (wMove.piece === "k");
+
     const wPlayed = playVerboseMove(chess, wMove);
     if (!wPlayed) continue;
 
@@ -128,9 +145,9 @@ function analyzePosition(fen, moveUci) {
 
     let hasNetRookWinRefutation = false;
 
+    // Refutation definition: Black can capture WR and White cannot immediately capture BR afterwards.
     if (WR_after) {
       const capturesWR = blackMoves.filter(b => b.to === WR_after);
-
       for (const bMove of capturesWR) {
         const bPlayed = playVerboseMove(chess, bMove);
         if (!bPlayed) continue;
@@ -145,7 +162,6 @@ function analyzePosition(fen, moveUci) {
 
         chess.undo();
 
-        // Refutation exists if Black wins the rook NET (no immediate capture of Black rook).
         if (!whiteCanCaptureBlackRookNow) {
           hasNetRookWinRefutation = true;
           break;
@@ -153,18 +169,21 @@ function analyzePosition(fen, moveUci) {
       }
     }
 
-    // If no net-rook-win refutation exists, White's pawn capture is safe.
     if (!hasNetRookWinRefutation) {
       PawnTakeSafe = true;
+      if (isKingCapture) PawnKingTakeSafe = true;
       chess.undo();
-      break;
+
+      // If we already found a safe KxP, that's the simplest case: no need to continue.
+      if (PawnKingTakeSafe) break;
+      continue;
     }
 
     chess.undo();
   }
 
   // Check and safe check (safe = rook not hanging and no immediate rook trade offered)
-  const Check = chess.isCheck(); // side-to-move is White -> "is White in check?"
+  const Check = chess.isCheck(); // side to move is White -> "is White in check?"
   const SafeCheck = Check && !R_hang && !Trade;
 
   // Pawn defended (by king adjacency or rook line attack)
@@ -183,7 +202,6 @@ function analyzePosition(fen, moveUci) {
 
     const bFileIdx = getFileIdx(blockSq);
     const bRank = getRank(blockSq);
-
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         const nx = bFileIdx + dx;
@@ -205,13 +223,19 @@ function analyzePosition(fen, moveUci) {
   const AttacksWR = rookAttacksSquare(chess, BR, WR);
   const SafeAttackWR = AttacksWR && !R_hang && !Trade;
 
-  // "Useful" is meant to kill rook-drift moves:
-  // - king/pawn moves are assumed purposeful enough in this endgame
-  // - rook moves must contribute to a concrete goal (check/cutoff/behind/defend pawn by rook/safe attack)
+  // "Useful" is meant to kill drift moves:
+  // - rook moves must contribute to a concrete goal (safe check / cutoff / behind / defend pawn by rook / safe attack)
+  // - king moves must at least improve king-to-pawn proximity or contribute to pawn defense
+  // - pawn moves are considered purposeful in this endgame
+  const postKingPawnDist = kdist(BK, BP);
+  const kingCloserToPawn = postKingPawnDist < preKingPawnDist;
+
   let Useful = true;
   if (moveRes.piece === "r") {
     Useful = SafeCheck || CutoffOK || Behind || PawnDefByRook || SafeAttackWR;
-  }
+  } else if (moveRes.piece === "k") {
+    Useful = PawnDef || kingCloserToPawn;
+  } // pawn moves keep Useful=true
 
   // Phase based on pawn rank after the move:
   // A: 2-4, B: 5-6, C: 7
@@ -223,6 +247,7 @@ function analyzePosition(fen, moveUci) {
     R_hang,
     Trade,
     PawnTakeSafe,
+    PawnKingTakeSafe,
     SafeCheck,
     PawnDef,
     Behind,
@@ -307,7 +332,12 @@ export function krKrpPolicy(input) {
     C = C.filter(c => !c.features.R_hang);
   }
 
-  // D2: don't allow a safe pawn capture if avoidable
+  // D2K: avoid allowing a SAFE king capture of the pawn (KxP) if avoidable
+  if (C.some(c => !c.features.PawnKingTakeSafe)) {
+    C = C.filter(c => !c.features.PawnKingTakeSafe);
+  }
+
+  // D2: don't allow any safe pawn capture if avoidable
   if (C.some(c => !c.features.PawnTakeSafe)) {
     C = C.filter(c => !c.features.PawnTakeSafe);
   }
@@ -317,36 +347,54 @@ export function krKrpPolicy(input) {
     C = C.filter(c => !c.features.Trade);
   }
 
-  // D4: avoid rook-drift moves if avoidable
+  // D4: avoid drift moves if avoidable
   if (C.some(c => c.features.Useful)) {
     C = C.filter(c => c.features.Useful);
   }
 
-  // Phase-dependent strict priorities, evaluated PER MOVE (no "phase of first candidate" bug).
-  function priorityVector(f) {
-    // In LOSS (if it ever happens), front-load SafeCheck for swindle chances.
-    const head = (target === "LOSS") ? [!!f.SafeCheck] : [];
-
-    if (f.phase === "A") return head.concat([!!f.CutoffOK, !!f.PawnDef, !!f.SafeCheck, !!f.Behind]);
-    if (f.phase === "B") return head.concat([!!f.Behind,  !!f.PawnDef, !!f.CutoffOK, !!f.SafeCheck]);
-    // phase C
-    return head.concat([!!f.PawnDef, !!f.Behind, !!f.CutoffOK, !!f.SafeCheck]);
+  // Prefer the most advanced pawn phase available (practically harder): C > B > A.
+  const Cphase = C.filter(c => c.features.phase === "C");
+  if (Cphase.length) {
+    C = Cphase;
+  } else {
+    const Bphase = C.filter(c => c.features.phase === "B");
+    if (Bphase.length) C = Bphase;
   }
 
-  function cmpBoolVec(aVec, bVec) {
-    for (let i = 0; i < Math.max(aVec.length, bVec.length); i++) {
-      const av = !!aVec[i];
-      const bv = !!bVec[i];
-      if (av !== bv) return av ? -1 : 1; // true first
-    }
-    return 0;
+  // Within the chosen phase, apply strict priorities.
+  const phase = C[0]?.features?.phase || "A";
+
+  const prefer = (feat) => (a, b) => {
+    const av = !!a.features[feat];
+    const bv = !!b.features[feat];
+    return av === bv ? 0 : (av ? -1 : 1);
+  };
+
+  const criteria = [];
+  if (target === "LOSS") criteria.push(prefer("SafeCheck"));
+
+  if (phase === "A") {
+    criteria.push(prefer("CutoffOK"));
+    criteria.push(prefer("PawnDef"));
+    criteria.push(prefer("SafeCheck"));
+    criteria.push(prefer("Behind"));
+  } else if (phase === "B") {
+    criteria.push(prefer("Behind"));
+    criteria.push(prefer("PawnDef"));
+    criteria.push(prefer("CutoffOK"));
+    criteria.push(prefer("SafeCheck"));
+  } else { // phase C
+    criteria.push(prefer("PawnDef"));
+    criteria.push(prefer("Behind"));
+    criteria.push(prefer("CutoffOK"));
+    criteria.push(prefer("SafeCheck"));
   }
 
   C.sort((a, b) => {
-    const av = priorityVector(a.features);
-    const bv = priorityVector(b.features);
-    const diff = cmpBoolVec(av, bv);
-    if (diff !== 0) return diff;
+    for (const fn of criteria) {
+      const diff = fn(a, b);
+      if (diff !== 0) return diff;
+    }
     return a.uci.localeCompare(b.uci); // deterministic tie-break
   });
 
