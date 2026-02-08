@@ -200,9 +200,9 @@ _MAX_DTM_BY_THEME = {
 # Approximate outcome mixture (order-independent sampling).
 # Tune after inspecting generate_positions.py counters (accepted_win/draw/loss).
 _OUTCOME_KEEP_P = {
-    +1: 0.95,  # wins
-     0: 0.95,  # draws
-    -1: 0.15,  # losses (cap hard)
+    +1: 0.80,  # wins
+     0: 0.70,  # draws
+    -1: 0.25,  # losses
 }
 
 # Slight theme rebalancing to avoid overfilling with "race-ish" positions.
@@ -218,9 +218,9 @@ _MIN_LOSING_ALTS_FOR_DRAW = 2
 _MIN_WORSENING_ALTS_FOR_WIN = 2  # at least 2 non-winning moves (including >=1 draw)
 
 # Loss hardness knobs
-_MIN_LOSS_SPREAD = 12  # plies difference between best defense and median defense
-_REQUIRE_QUICK_BLUNDER = True
-_QUICK_BLUNDER_THRESHOLD = -14  # mate <= 14 plies (White POV: dtm close to 0 is quick)
+_MIN_LOSS_SPREAD = 8  # plies difference between best defense and median defense
+_REQUIRE_QUICK_BLUNDER = False
+_QUICK_BLUNDER_THRESHOLD = -20  # mate <= 20 plies (White POV: dtm close to 0 is quick)
 
 
 def _bucket_salt(board: chess.Board, wdl: int) -> int:
