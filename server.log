@@ -1,0 +1,11 @@
+127.0.0.1 - - [09/Feb/2026 07:37:43] "GET /trivial_endings.html HTTP/1.1" 200 -
+127.0.0.1 - - [09/Feb/2026 07:37:43] "GET /img/Lichess-White-Logo-Online-Chess-49.png HTTP/1.1" 200 -
+127.0.0.1 - - [09/Feb/2026 07:37:43] "GET /endings.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Feb/2026 07:37:43] "GET /policy_kr_kp.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Feb/2026 07:37:43] "GET /policy_kr_krp.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Feb/2026 07:37:43] "GET /policy_kp_kp.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Feb/2026 07:37:43] "GET /policy_krp_kr.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Feb/2026 07:37:44] "GET /sw.js HTTP/1.1" 200 -
+127.0.0.1 - - [09/Feb/2026 07:37:44] "GET /data/manifest.json HTTP/1.1" 200 -
+127.0.0.1 - - [09/Feb/2026 07:37:44] "GET /sw.js HTTP/1.1" 304 -
+127.0.0.1 - - [09/Feb/2026 07:37:44] "GET /data/KBP_KB.txt?v=bc74156548a2b786e22c88085d24104dc278133411b738f199ba3ee610c4945b HTTP/1.1" 200 -
