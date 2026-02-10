@@ -924,7 +924,13 @@ def main() -> None:
                 continue
 
             # Accepted -> write record (no separators, no newline).
-            f_out.write(encode_record(material, b))
+            rec = encode_record(material, b)
+            outcome = "D"
+            if wdl_white > 0:
+                outcome = "W"
+            elif wdl_white < 0:
+                outcome = "L"
+            f_out.write(rec + outcome)
             accepted += 1
 
             # Update accepted-position stats (root outcome).

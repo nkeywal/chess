@@ -478,7 +478,7 @@ async function startNewGame() {
   guessLock = false;
   setStatus("warn", "Setting up the board...");
   try {
-    const fen = await generateValidPosition();
+    const { fen, outcome } = await generateValidPosition();
     if (localGameId !== gameId) return;
     currentFen = fen;
     initialFen = fen;
@@ -487,6 +487,8 @@ async function startNewGame() {
     if (localGameId !== gameId) return;
     currentTbData = await fetchTablebase(fen);
     if (localGameId !== gameId) return;
+    // Overwrite WDL from Lichess with our local outcome if they differ (local is "source of truth" for this game)
+    if (currentTbData) currentTbData.wdl = outcome;
     updateLinks(initialFen);
     const turnStr = chess.turn() === 'w' ? "White" : "Black";
     setStatus(null, `${turnStr} to move: Evaluate or play.`);
@@ -859,19 +861,25 @@ async function generateValidPosition() {
     throw new Error(`File ${filename} missing or load failed: ${e.message}`);
   }
 
-  const recordLength = w.length + b.length;
+  const piecesCount = w.length + b.length;
+  const recordLength = piecesCount + 1;
   const totalRecords = Math.floor(text.length / recordLength);
   const randomIndex = Math.floor(Math.random() * totalRecords);
   const start = randomIndex * recordLength;
   const record = text.substring(start, start + recordLength);
   const grid = Array(8).fill(null).map(() => Array(8).fill(""));
   const flatList = [...w.map(p => ({type: p, color: 'w'})), ...b.map(p => ({type: p, color: 'b'}))];
-  for (let i = 0; i < recordLength; i++) {
+  for (let i = 0; i < piecesCount; i++) {
     const val = ALPHABET.indexOf(record[i]);
     const piece = flatList[i];
     grid[7 - Math.floor(val / 8)][val % 8] = piece.color === 'w' ? piece.type.toUpperCase() : piece.type.toLowerCase();
   }
-  return grid.map(row => {
+  const outcomeChar = record[piecesCount];
+  let outcomeWdl = 0;
+  if (outcomeChar === 'W') outcomeWdl = 2;
+  else if (outcomeChar === 'L') outcomeWdl = -2;
+
+  const fen = grid.map(row => {
     let empty = 0, str = "";
     row.forEach(c => {
       if (c === "") empty++;
@@ -880,6 +888,8 @@ async function generateValidPosition() {
     if (empty > 0) str += empty;
     return str;
   }).join("/") + " w - - 0 1";
+
+  return { fen, outcome: outcomeWdl };
 }
 
 function clearArrows() { if (typeof board.removeArrows === "function") board.removeArrows(); }

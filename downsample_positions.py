@@ -39,11 +39,11 @@ def record_len_from_name(path: Path) -> Optional[int]:
         w = "".join(ch for ch in parts[0] if ch in "KQRBNP")
         b = "".join(ch for ch in parts[1] if ch in "KQRBNP")
         if w or b:
-            return len(w) + len(b)
+            return len(w) + len(b) + 1
 
     groups = PIECE_RE.findall(stem)
     if len(groups) >= 2:
-        return len(groups[0]) + len(groups[1])
+        return len(groups[0]) + len(groups[1]) + 1
     if len(groups) == 1:
         return len(groups[0])
     return None
