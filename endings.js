@@ -518,7 +518,7 @@ async function startNewGame() {
   } catch (e) {
     if (localGameId !== gameId) return;
     console.error(e);
-    setStatus("bad", "Error: " + e.message);
+    setStatus("bad", e.message);
   }
 }
 
@@ -874,7 +874,8 @@ async function generateValidPosition() {
     setStatus("warn", "Fetching position...");
     text = await loadDense(filename);
   } catch (e) {
-    throw new Error(`File ${filename} missing or load failed: ${e.message}`);
+    const label = generateEndgameLabel(filename.replace(".txt", "")) || filename;
+    throw new Error(`Failed to fetch positions for ${label}`);
   }
 
   const piecesCount = w.length + b.length;
@@ -1033,8 +1034,8 @@ function generateEndgameLabel(value) {
   const MAP_W = { K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘", P: "♙" };
   const MAP_B = { K: "♚", Q: "♛", R: "♜", B: "♝", N: "♞", P: "♟" };
 
-  const left = m[1].split("").map(c => MAP_B[c] || c).join("");
-  const right = m[2].split("").map(c => MAP_W[c] || c).join("");
+  const left = m[1].split("").map(c => MAP_W[c] || c).join("");
+  const right = m[2].split("").map(c => MAP_B[c] || c).join("");
   return `${left} vs ${right}`;
 }
 
