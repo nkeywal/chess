@@ -160,11 +160,11 @@ def encode_position(board: chess.Board, material: Material) -> bytes:
     return "".join(out_chars).encode("ascii")
 
 
-def iter_puzzle_fens(path: Path) -> Iterable[str]:
+def iter_puzzle_data(path: Path) -> Iterable[Tuple[str, str]]:
     """
     puzzle_<W>_<B>.txt lines are:
-      PuzzleId<TAB>Rating<TAB>Popularity<TAB>FEN
-    Yield the FEN field as-is.
+      PuzzleId<TAB>Rating<TAB>Popularity<TAB>FEN<TAB>Outcome
+    Yield (FEN, Outcome).
     """
     with path.open("r", encoding="utf-8") as f:
         for line in f:
@@ -174,7 +174,9 @@ def iter_puzzle_fens(path: Path) -> Iterable[str]:
             parts = line.split("\t")
             if len(parts) < 4:
                 continue
-            yield parts[3]
+            fen = parts[3]
+            outcome = parts[4] if len(parts) > 4 else "W"
+            yield fen, outcome
 
 
 def main() -> None:
@@ -210,9 +212,9 @@ def main() -> None:
         n_pos = 0
         n_bad = 0
 
-        # Write raw bytes, no separators (file size == positions * total_pieces).
+        # Write raw bytes, no separators (file size == positions * (total_pieces + 1)).
         with dst_path.open("wb") as out:
-            for fen in iter_puzzle_fens(src_path):
+            for fen, outcome in iter_puzzle_data(src_path):
                 try:
                     board = chess.Board(fen)
                     # Your extraction already normalized to white-to-move; still enforce.
@@ -223,7 +225,7 @@ def main() -> None:
 
                     # Encode and write.
                     enc = encode_position(board, mat)
-                    out.write(enc)
+                    out.write(enc + outcome.encode("ascii"))
                     n_pos += 1
                 except Exception:
                     n_bad += 1
@@ -233,12 +235,12 @@ def main() -> None:
         converted_positions += n_pos
 
         # Basic sanity check on file size.
-        expected = n_pos * mat.total_pieces
+        expected = n_pos * (mat.total_pieces + 1)
         actual = dst_path.stat().st_size
         if actual != expected:
             raise RuntimeError(
                 f"Size mismatch for {dst_path.name}: expected {expected} bytes "
-                f"({n_pos} * {mat.total_pieces}), got {actual}."
+                f"({n_pos} * {mat.total_pieces + 1}), got {actual}."
             )
 
         print(

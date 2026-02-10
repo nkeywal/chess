@@ -357,7 +357,7 @@ if (el.godModeBtn) {
       setGuessEnabled(false);
     } catch(e) {
       console.error(e);
-      setStatus("bad", "Error loading analysis.");
+      setStatus("bad", "Network issue: can't access tablebase/lichess");
     }
   });
 }
@@ -518,7 +518,11 @@ async function startNewGame() {
   } catch (e) {
     if (localGameId !== gameId) return;
     console.error(e);
-    setStatus("bad", e.message);
+    if (e.message.includes("fetch positions")) {
+       setStatus("bad", e.message);
+    } else {
+       setStatus("bad", "Network issue: can't access tablebase/lichess");
+    }
   }
 }
 
@@ -750,7 +754,8 @@ async function handleUserMovePostProcess(lastMove) {
     } else handleGameOver();
   } catch (e) {
     if (localGameId !== gameId) return;
-    setStatus("bad", "Error: " + e.message);
+    console.error(e);
+    setStatus("bad", "Network issue: can't access tablebase/lichess");
   }
 }
 
@@ -793,7 +798,7 @@ async function handleGuess(guessWdl) {
       
   } catch (e) {
       console.error("Error in handleGuess:", e);
-      setStatus("bad", "Error processing guess.");
+      setStatus("bad", "Network issue: can't access tablebase/lichess");
   }
 }
 

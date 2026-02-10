@@ -480,7 +480,8 @@ def main() -> None:
 
             out_path = out_dir / mat.filename
             h = get_handle(handles, out_path)
-            h.write(f"{row['PuzzleId']}\t{rating_s}\t{pop_s}\t{fen_out}\n")
+            # Added outcome 'W' to the record (puzzles are wins)
+            h.write(f"{row['PuzzleId']}\t{rating_s}\t{pop_s}\t{fen_out}\tW\n")
 
             agg = by_mat.get(mat.key)
             if agg is None:
