@@ -263,6 +263,10 @@ const overlayMarkers = new OverlayMarkers(board, document.getElementById("board"
 
 board.enableMoveInput((event) => {
   if (!isUserTurn || !gameActive) return false;
+  if (!analysisMode && (!currentTbData || !currentTbData.moves || currentTbData.moves.length === 0)) {
+     // Offline or evaluation only: don't allow moves
+     return false;
+  }
   if (event.type === "moveInputStarted") clearArrows();
   
   switch (event.type) {
@@ -359,6 +363,7 @@ if (el.godModeBtn) {
 }
 
 async function undoLastMove(updateStatus = true) {
+  if (!currentTbData || !currentTbData.moves || currentTbData.moves.length === 0) return;
   if (chess.turn() === 'b') chess.undo();
   else { chess.undo(); chess.undo(); }
   currentFen = chess.fen();
@@ -485,13 +490,24 @@ async function startNewGame() {
     chess.load(fen);
     await board.setPosition(fen, true);
     if (localGameId !== gameId) return;
-    currentTbData = await fetchTablebase(fen);
-    if (localGameId !== gameId) return;
-    // Overwrite WDL from Lichess with our local outcome if they differ (local is "source of truth" for this game)
-    if (currentTbData) currentTbData.wdl = outcome;
-    updateLinks(initialFen);
+
+    // Use local outcome immediately for guess, no need to wait for API
+    currentTbData = { wdl: outcome, moves: [] };
     const turnStr = chess.turn() === 'w' ? "White" : "Black";
     setStatus(null, `${turnStr} to move: Evaluate or play.`);
+    
+    // Fetch moves in background for play/analysis
+    fetchTablebase(fen).then(data => {
+      if (localGameId !== gameId) return;
+      if (data) {
+        data.wdl = outcome; // Source of truth is the local outcome
+        currentTbData = data;
+      }
+    }).catch(e => {
+       console.warn("Tablebase fetch failed (offline?), play/analysis disabled.", e);
+    });
+
+    updateLinks(initialFen);
     setGuessEnabled(true);
     gameActive = true;
     isUserTurn = true;
