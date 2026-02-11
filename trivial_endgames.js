@@ -1038,8 +1038,8 @@ function generateEndgameLabel(value) {
   const m = /^([KQRBNP]+)_([KQRBNP]+)$/.exec(value);
   if (!m) return null;
 
-  const MAP_W = { K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘", P: "♙" };
-  const MAP_B = { K: "♚", Q: "♛", R: "♜", B: "♝", N: "♞", P: "♟" };
+  const MAP_W = { K: "♚", Q: "♛", R: "♜", B: "♝", N: "♞", P: "♟" };
+  const MAP_B = { K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘", P: "♙" };
 
   const left = m[1].split("").map(c => MAP_W[c] || c).join("");
   const right = m[2].split("").map(c => MAP_B[c] || c).join("");
