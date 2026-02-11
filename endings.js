@@ -12,6 +12,7 @@ import { krKrpPolicy } from "./policy_kr_krp.js";
 import { kpKpPolicy } from "./policy_kp_kp.js";
 import { krpKrPolicy } from "./policy_krp_kr.js";
 import { krKpPolicy } from "./policy_kr_kp.js";
+import { kbpKbPolicy } from "./policy_kbp_kb.js";
 
 class OverlayMarkers {
   constructor(chessboard, containerEl) {
@@ -578,6 +579,7 @@ MovePolicies.register("KR_KRP", krKrpPolicy);
 MovePolicies.register("KP_KP", kpKpPolicy);
 MovePolicies.register("KRP_KR", krpKrPolicy);
 MovePolicies.register("KR_KP", krKpPolicy);
+MovePolicies.register("KBP_KB", kbpKbPolicy);
 
 /**
  * Main entry point for selecting the computer's move.
