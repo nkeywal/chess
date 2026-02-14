@@ -14,6 +14,18 @@ import { krpKrPolicy } from "./policy_krp_kr.js";
 import { krKpPolicy } from "./policy_kr_kp.js";
 import { kbpKbPolicy } from "./policy_kbp_kb.js";
 
+function moveDtmAbs(m) {
+  if (m?.checkmate) return 0;
+  return (typeof m?.dtm === "number") ? Math.abs(m.dtm) : Infinity;
+}
+
+function tbCategoryToWdl(category) {
+  const c = String(category || "").toLowerCase();
+  if (c.includes("win")) return 2;
+  if (c.includes("loss")) return -2;
+  return 0; // draw/unknown
+}
+
 class OverlayMarkers {
   constructor(chessboard, containerEl) {
     this.chessboard = chessboard;
@@ -131,7 +143,7 @@ class OverlayMarkers {
 
     let textEl = null;
     const dtm = markerDef.dtm;
-    if (Number.isFinite(dtm) && dtm !== 0) {
+    if (Number.isFinite(dtm)) {
       const cx = point.x + w / 2;
       const cy = point.y + h / 2;
       textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -410,16 +422,14 @@ function selectSquare(sq) {
       let bestDtmForSquare = Infinity;
       const winningMoves = moves.filter(m => tbMoveCategoryToMoverWdl(m.category) === -2);
       winningMoves.forEach(m => {
-        if (m.dtm !== undefined && m.dtm !== null) {
-          const dist = Math.abs(m.dtm);
-          if (dist < bestDtmForSquare) bestDtmForSquare = dist;
-        }
+        const dist = moveDtmAbs(m);
+        if (dist < bestDtmForSquare) bestDtmForSquare = dist;
       });
       const destMap = new Map();
       moves.forEach(m => {
         const dest = m.uci.slice(2, 4);
         const moverWdl = tbMoveCategoryToMoverWdl(m.category);
-        const dtm = m.dtm !== undefined && m.dtm !== null ? Math.abs(m.dtm) : Infinity;
+        const dtm = moveDtmAbs(m);
         if (!destMap.has(dest)) destMap.set(dest, {moverWdl, dtm});
         else {
           const current = destMap.get(dest);
@@ -432,7 +442,7 @@ function selectSquare(sq) {
         if (data.moverWdl === -2) markerDef = MARKER_GOD_WIN;
         else if (data.moverWdl === 2) markerDef = MARKER_GOD_LOSS;
         const marker = { ...markerDef };
-        if (data.dtm !== undefined && data.dtm !== Infinity) marker.dtm = data.dtm;
+        if (data.dtm !== Infinity) marker.dtm = data.dtm;
         overlayMarkers.add(marker, dest);
       });
     } else {
@@ -934,13 +944,9 @@ function uciToArrow(uci) { return { from: uci.slice(0, 2), to: uci.slice(2, 4) }
  * -  2: Mover loses (Worst outcome)
  */
 function tbMoveCategoryToMoverWdl(category) {
-  const c = String(category || "").toLowerCase();
-  if (c.includes("loss")) return -2; // Opponent loses -> Mover wins
-  if (c.includes("draw")) return 0;
-  if (c.includes("win")) return 2;   // Opponent wins -> Mover loses
-  
-  // Fallback/Error case - prevent silent failures
-  console.warn(`Unknown category: ${category}. Defaulting to draw (0).`);
+  const wdl = tbCategoryToWdl(category);
+  if (wdl === -2) return -2; // Category "loss" for opponent means mover wins
+  if (wdl === 2) return 2;  // Category "win" for opponent means mover loses
   return 0;
 }
 
@@ -952,7 +958,7 @@ function drawOutcomeArrows(tbData) {
   const mappedMoves = moves.map(m => ({
     uci: m.uci,
     moverWdl: tbMoveCategoryToMoverWdl(m.category), // -2(Win), 0(Draw), 2(Loss)
-    dtm: typeof m.dtm === 'number' ? Math.abs(m.dtm) : Infinity
+    dtm: moveDtmAbs(m)
   }));
 
   const hasWin = mappedMoves.some(m => m.moverWdl === -2);
@@ -977,8 +983,8 @@ function drawOutcomeArrows(tbData) {
        if (m.dtm < bestDtm) bestDtm = m.dtm;
     });
 
-    // Filter by best DTM (if DTM info is missing/Infinity, show all wins)
-    candidates = wins.filter(m => bestDtm === Infinity || m.dtm === bestDtm)
+    // Filter by best DTM
+    candidates = wins.filter(m => m.dtm === bestDtm)
                      .map(m => ({ ...uciToArrow(m.uci), type: ARROW_WIN }));
   } else {
     // No win exists, but we have draws (and losses, otherwise we returned above).
@@ -1017,11 +1023,7 @@ async function fetchTablebase(fen) {
   const res = await fetch(TABLEBASE_URL + encodeURIComponent(fen));
   const data = await res.json();
 
-  if (typeof data.wdl === 'undefined' && data.category) {
-    if (data.category === 'win') data.wdl = 2;
-    else if (data.category === 'loss') data.wdl = -2;
-    else data.wdl = 0;
-  }
+  data.wdl = tbCategoryToWdl(data.category);
   tbCache.set(fen, data);
   return data;
 }
