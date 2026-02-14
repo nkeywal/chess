@@ -15,6 +15,7 @@ The frontend is a single-page application built with standard web technologies (
 - **State Management**: The application uses `localStorage` to persist the current endgame selection and the user's score streak.
 - **Data Loading**: Positions are loaded from a `data/` directory. A `manifest.json` file is used to manage versioning and cache busting for the position files.
 - **Service Worker**: A service worker (`sw.js`) provides offline capabilities and caching for the application assets.
+- **Move Policies**: Specific JavaScript modules (`policy_*.js`) implement move selection logic for the computer. These policies handle tie-breaking when multiple optimal moves are available, such as preferring non-capture draws or specific defensive setups.
 
 ## 3. Backend and Data Generation
 
@@ -24,4 +25,3 @@ The backend consists of Python scripts used to generate and filter the endgame p
 - **Tablebase Probing**: The generator probes Gaviota tablebases using the `python-chess` library to retrieve WDL and DTM data for each position.
 - **Filtering**: `filters.py` contains logic to exclude trivial or redundant positions, ensuring the generated datasets are relevant for training.
 - **Data Format**: Positions are stored in a compact format where each piece's square is represented by a single character from a 64-character alphabet, followed by a single character representing the outcome (W, L, or D).
-- **Move Policies**: Specific JavaScript modules (`policy_*.js`) implement move selection logic for the computer. These policies handle tie-breaking when multiple optimal moves are available, such as preferring non-capture draws or specific defensive setups.
