@@ -368,6 +368,10 @@ if (el.godModeBtn) {
       const turnStr = chess.turn() === 'w' ? "White" : "Black";
       setStatus(null, `Analysis: ${turnStr} to move.`);
       setGuessEnabled(false);
+      if (el.btnUndo && chess.history().length > 0) {
+        el.btnUndo.classList.remove("hidden");
+        el.btnUndo.style.display = '';
+      }
     } catch(e) {
       console.error(e);
       setStatus("bad", "Network issue: can't access tablebase/lichess");
@@ -376,7 +380,7 @@ if (el.godModeBtn) {
 }
 
 async function undoLastMove(updateStatus = true) {
-  if (!currentTbData || !currentTbData.moves || currentTbData.moves.length === 0) return;
+  if (chess.history().length === 0) return;
   if (chess.turn() === 'b') chess.undo();
   else { chess.undo(); chess.undo(); }
   currentFen = chess.fen();
@@ -881,6 +885,10 @@ async function handleGameOver() {
   gameActive = false;
   isUserTurn = false;
   setGuessEnabled(false);
+  if (el.btnUndo && chess.history().length > 0) {
+    el.btnUndo.classList.remove("hidden");
+    el.btnUndo.style.display = '';
+  }
 }
 
 function endGame(success, msg) {
