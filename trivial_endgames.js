@@ -442,7 +442,7 @@ function selectSquare(sq) {
         if (data.moverWdl === -2) markerDef = MARKER_GOD_WIN;
         else if (data.moverWdl === 2) markerDef = MARKER_GOD_LOSS;
         const marker = { ...markerDef };
-        if (data.dtm !== Infinity) marker.dtm = data.dtm;
+        if (data.moverWdl !== 0 && data.dtm !== Infinity) marker.dtm = data.dtm;
         overlayMarkers.add(marker, dest);
       });
     } else {
