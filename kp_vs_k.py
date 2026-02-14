@@ -20,6 +20,14 @@ from helpers import mask_files, mask_ranks
 #   and (for wins) a unique winning move with at least one natural drawing blunder.
 # - Reduce near-duplicates by canonicalizing pawn files via gen_hints + deterministic thinning.
 #
+# Target mix (approx, stateless):
+#   - win ~70%
+#   - draw ~30%
+#
+# We achieve this primarily by:
+#   - Keeping 100% of qualified draws (and slightly widening draw acceptance).
+#   - Deterministically thinning wins (keep ~26% on average) using stable hashing.
+#
 # Notes / constraints:
 # - The TB helper `tb["probe_move"]` is safe ONLY when used on the root board state.
 #   Do NOT push moves in this filter and then call probe_move() on the mutated board.
@@ -77,6 +85,32 @@ def _stable_u32(board: chess.Board) -> int:
         key = int(h[:8], 16)
 
     return key & 0xFFFFFFFF
+
+
+def _mix32(x: int) -> int:
+    # Small 32-bit mix (Avalanche-ish)
+    x &= 0xFFFFFFFF
+    x ^= (x >> 16) & 0xFFFFFFFF
+    x = (x * 0x7feb352d) & 0xFFFFFFFF
+    x ^= (x >> 15) & 0xFFFFFFFF
+    x = (x * 0x846ca68b) & 0xFFFFFFFF
+    x ^= (x >> 16) & 0xFFFFFFFF
+    return x & 0xFFFFFFFF
+
+
+def _stable_u32_salt(board: chess.Board, salt: int) -> int:
+    return _mix32(_stable_u32(board) ^ (salt & 0xFFFFFFFF))
+
+
+def _keep_with_prob(board: chess.Board, p: float, salt: int) -> bool:
+    """
+    Deterministic keep-with-probability gate.
+    """
+    if p >= 1.0:
+        return True
+    if p <= 0.0:
+        return False
+    return _stable_u32_salt(board, salt) < int(p * 0x100000000)
 
 
 def _pawn_front_sq(p: int) -> int:
@@ -151,7 +185,7 @@ def filter_notb_kp_vs_k(board: chess.Board) -> bool:
 
     # Avoid the "one-move queen" farm.
     if pr == 6:
-        if bk != _pawn_front_sq(p):  # front square is the promotion square on rank 8
+        if bk != _pawn_front_sq(p):
             return False
 
     # Interaction: both kings should be relevant.
@@ -162,23 +196,13 @@ def filter_notb_kp_vs_k(board: chess.Board) -> bool:
     if d_bk_p > 4:
         return False
 
-    # Avoid already-contact positions that are often trivial (just take opposition/push).
-    if d_wk_p <= 0:
-        return False
-
-    # Pawn square heuristic:
-    # moves_to_promote is the number of pawn pushes required from current rank.
-    # If BK cannot reach the promotion square in time (in a king race sense),
-    # many positions are too easy. Keep only if BK is in (or very near) the square.
-    moves_to_promote = 7 - pr  # from rank pr to rank 7 (promotion rank)
+    # Pawn square heuristic.
+    moves_to_promote = 7 - pr
     promo_sq = _pawn_promo_sq(pf)
-
-    # BK must be within the pawn's square, approximated as Cheb distance to promo <= moves_to_promote + tempo_slack.
-    # Tempo is messy; allow +1 slack so we don't over-prune.
     if _cheb_dist(bk, promo_sq) > (moves_to_promote + 1):
         return False
 
-    # Also keep WK not totally off the pawn file when pawn is still far (reduces "counting-only" positions).
+    # Also keep WK not totally off the pawn file when pawn is still far.
     if pr <= 4 and abs((wk & 7) - pf) >= 3:
         return False
 
@@ -188,6 +212,13 @@ def filter_notb_kp_vs_k(board: chess.Board) -> bool:
 # =============================================================================
 # Stage B: tablebase filter
 # =============================================================================
+
+# Win thinning: tune these if your observed baseline ratio is different.
+# With your observed ~90% win / 10% draw, keeping ~0.26 of wins yields ~70/30 overall.
+_WIN_KEEP_P_ROOK = 0.34    # keep more rook-pawn wins (rare/thematic)
+_WIN_KEEP_P_KNIGHT = 0.30  # keep more knight-pawn wins
+_WIN_KEEP_P_OTHER = 0.21   # main thinning knob (c/d pawns in our canonical a-d set)
+
 
 def filter_tb_kp_vs_k(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     """
@@ -200,9 +231,7 @@ def filter_tb_kp_vs_k(board: chess.Board, tb: Mapping[str, Any]) -> bool:
     We target:
       - Interesting wins: unique winning move AND at least one drawing blunder.
       - Interesting draws: advanced pawn + close kings + "block/opposition" structure (feels winnable).
-      - Deterministic thinning to reduce near-duplicates and roughly balance draw/win.
-
-    IMPORTANT: do not mutate board (push/pop) in here (see note at top).
+      - Deterministic thinning to reduce near-duplicates and reach ~70/30 win/draw.
     """
     wdl = tb["wdl"]
     dtm = tb["dtm"]
@@ -218,11 +247,9 @@ def filter_tb_kp_vs_k(board: chess.Board, tb: Mapping[str, Any]) -> bool:
 
     pf, pr = chess.square_file(p), chess.square_rank(p)
 
-    # Safety: if something unexpected slips through.
     if wdl not in (0, 1):
         return False
 
-    # Reject degenerate: too few moves (usually already rejected by generic filter).
     legal_moves = list(board.legal_moves)
     if len(legal_moves) < 2:
         return False
@@ -263,8 +290,6 @@ def filter_tb_kp_vs_k(board: chess.Board, tb: Mapping[str, Any]) -> bool:
 
         # Prefer wins where the winning move isn't a trivial pawn push from 6th/7th.
         if board.piece_at(best_move.from_square).piece_type == chess.PAWN:
-            # If pawn push is the key, require the win to remain non-immediate after it.
-            # (i.e., not "push and promote next".)
             if best_dtm < 20:
                 return False
 
@@ -278,20 +303,29 @@ def filter_tb_kp_vs_k(board: chess.Board, tb: Mapping[str, Any]) -> bool:
         if not has_king_blunder:
             return False
 
-        # Keep all qualifying wins.
-        return True
+        # Deterministically thin wins to reach ~70/30 overall.
+        if _is_rook_pawn(pf):
+            keep_p = _WIN_KEEP_P_ROOK
+        elif _is_knight_pawn(pf):
+            keep_p = _WIN_KEEP_P_KNIGHT
+        else:
+            keep_p = _WIN_KEEP_P_OTHER
+
+        # Slightly favor advanced pawn wins (they are rarer and more thematic).
+        if pr >= 5:
+            keep_p = min(1.0, keep_p + 0.05)
+
+        return _keep_with_prob(board, keep_p, salt=0xB16B00B5)
 
     # -------------------------------------------------------------------------
     # DRAW case
     # -------------------------------------------------------------------------
     if wdl == 0:
-        # Structural "hard draw" heuristics:
-        # - Pawn advanced
-        # - Kings close
-        # - "stop/opposition" structure (feels winnable)
-        # - Limited mobility / opposition-like feel
-        if pr < 4:
-            return False  # too early: often trivial draw by "king too far" (counting)
+        # "Hard draw" heuristics:
+        # We slightly widen acceptance to increase draw yield:
+        # - allow pr == 3 (4th rank) only in very tight "block" configurations.
+        if pr < 3:
+            return False
 
         d_wk_p = _cheb_dist(wk, p)
         d_bk_p = _cheb_dist(bk, p)
@@ -304,28 +338,36 @@ def filter_tb_kp_vs_k(board: chess.Board, tb: Mapping[str, Any]) -> bool:
         pawn_front = _pawn_front_sq(p)
         promo_sq = _pawn_promo_sq(pf)
 
-        # Require a "stop" motif: BK must be in front of the pawn (same file) or directly blocking it.
-        # (BK==pawn_front is the cleanest case, but many key draws have BK one/two squares in front.)
         in_front_same_file = (chess.square_file(bk) == pf and chess.square_rank(bk) > pr)
+
+        # Primary block zone: BK blocks or is clearly in front.
         if bk != pawn_front and bk != promo_sq and not in_front_same_file:
-            return False
+            # Secondary: BK adjacent to the front square (common "shouldering" draws).
+            if chess.square_distance(bk, pawn_front) > 1:
+                return False
 
         # Make it feel "almost winning": WK should be at/above pawn rank.
         if chess.square_rank(wk) < pr:
             return False
 
-        # Avoid the most trivial rook-pawn dead draws where WK is already boxed out far from the corner.
+        # pr==3 draws are only accepted if BK is directly blocking and kings are very tight.
+        if pr == 3:
+            if bk != pawn_front:
+                return False
+            if d_wk_p > 1 or d_bk_p > 1:
+                return False
+
+        # Rook pawn special-case: encourage corner motif.
         if _is_rook_pawn(pf):
-            # Encourage the textbook corner motif.
             corner = chess.A8 if pf == 0 else chess.H8
             if _cheb_dist(bk, corner) > 2:
                 return False
 
-        # Prefer positions where White has limited king moves (zugzwang-ish).
-        if len(legal_moves) > 8:
+        # Prefer positions where White has limited king moves (zugzwang-ish), but allow a bit more.
+        if len(legal_moves) > 10:
             return False
 
-        # Keep 100% of qualified draws to balance win yield.
+        # Keep 100% of qualified draws (we want ~30% overall).
         return True
 
     return False
