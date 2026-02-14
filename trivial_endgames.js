@@ -572,16 +572,30 @@ const MovePolicies = {
         const { tbData } = input;
         if (!tbData || !tbData.moves || tbData.moves.length === 0) return null;
 
-        let bestMove = tbData.moves[0];
-        const bestMoverWdl = tbMoveCategoryToMoverWdl(bestMove.category);
-        
-        // Default behavior: if best move is draw, prefer non-capture draw
-        if (bestMoverWdl === 0) {
-            const drawMoves = tbData.moves.filter(m => tbMoveCategoryToMoverWdl(m.category) === 0);
-            const nonCapture = drawMoves.find(m => m.san && !m.san.includes('x'));
-            if (nonCapture) bestMove = nonCapture;
+        const mapped = tbData.moves.map(m => ({
+            original: m,
+            moverWdl: tbMoveCategoryToMoverWdl(m.category),
+            dtm: moveDtmAbs(m)
+        }));
+
+        let candidates = [];
+        const hasWin = mapped.some(m => m.moverWdl === -2);
+        const hasDraw = mapped.some(m => m.moverWdl === 0);
+
+        if (hasWin) {
+            candidates = mapped.filter(m => m.moverWdl === -2);
+            candidates.sort((a, b) => a.dtm - b.dtm);
+        } else if (hasDraw) {
+            candidates = mapped.filter(m => m.moverWdl === 0);
+            // Prefer non-capture draw
+            const nonCapture = candidates.find(c => c.original.san && !c.original.san.includes('x'));
+            if (nonCapture) return nonCapture.original;
+        } else {
+            candidates = mapped;
+            candidates.sort((a, b) => b.dtm - a.dtm); // Maximize resistance
         }
-        return bestMove;
+
+        return candidates[0].original;
     }
 };
 

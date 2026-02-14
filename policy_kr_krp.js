@@ -268,7 +268,7 @@ export function krKrpPolicy(input) {
     original: m,
     uci: m.uci,
     outcome: getMoverResult(m.category),
-    dtm: Number.isFinite(m.dtm) ? Math.abs(m.dtm) : null,
+    dtm: (m.checkmate || m.dtm === 0) ? 0 : (Number.isFinite(m.dtm) ? Math.abs(m.dtm) : null),
     features: null,
   }));
 
