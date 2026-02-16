@@ -211,6 +211,8 @@ function analyzePosition(fen, moveUci) {
     bpFreePawnCaptureExists,
     oppositionGoodForBlack,
     BK_attacks_WP,
+    isPromotion: moveRes.flags.includes("p"),
+    promotionIsSafe: moveRes.flags.includes("p") && !chess.moves({ verbose: true }).some(w => w.to === to),
     kingCloserToBP,
     kingCloserToWP,
     BKInFrontOfBP,
@@ -353,6 +355,7 @@ export function kpKpPolicy(input) {
     criteria.push(prefer("kingCloserToBP"));
   } else {
     // DRAW: maximize practical difficulty while staying in draw set.
+    criteria.push(prefer("promotionIsSafe"));
     criteria.push(prefer("oppositionGoodForBlack"));
     criteria.push(prefer("BK_attacks_WP"));
     criteria.push(prefer("BKInFrontOfBP"));
