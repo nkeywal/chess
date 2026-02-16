@@ -88,6 +88,9 @@ class OverlayMarkers {
     if (vb) this.svg.setAttribute('viewBox', vb);
     const par = mainSvg.getAttribute('preserveAspectRatio');
     if (par) this.svg.setAttribute('preserveAspectRatio', par);
+    if (this.svg.parentElement && this.svg.parentElement.lastElementChild !== this.svg) {
+      this.svg.parentElement.appendChild(this.svg);
+    }
   }
 
   clear() {
@@ -127,17 +130,31 @@ class OverlayMarkers {
       if (markerDef.class) rect.classList.add(markerDef.class);
       rect.style.pointerEvents = 'none';
       shape = rect;
+    } else if (slice.toLowerCase().includes('ring')) {
+      const cx = point.x + w / 2;
+      const cy = point.y + h / 2;
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute('cx', cx);
+      circle.setAttribute('cy', cy);
+      circle.setAttribute('r', minDim * 0.4);
+      circle.classList.add('marker-ring');
+      if (markerDef.class) circle.classList.add(markerDef.class);
+      circle.style.pointerEvents = 'none';
+      circle.style.fill = 'none';
+      circle.style.strokeWidth = (minDim * 0.07) + 'px';
+      shape = circle;
     } else {
       const cx = point.x + w / 2;
       const cy = point.y + h / 2;
       const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       circle.setAttribute('cx', cx);
       circle.setAttribute('cy', cy);
-      circle.setAttribute('r', minDim * 0.23);
+      circle.setAttribute('r', minDim * 0.15);
       circle.classList.add('marker-dot');
       if (markerDef.class) circle.classList.add(markerDef.class);
       circle.style.pointerEvents = 'none';
       shape = circle;
+    }
     }
     this.gMarkers.appendChild(shape);
 
@@ -169,6 +186,7 @@ class OverlayMarkers {
 
 const MARKER_SOURCE = { class: "marker-source", slice: "markerSquare" };
 const MARKER_DEST = { class: "marker-dest", slice: "markerDot" };
+const MARKER_CAPTURE = { class: "marker-capture", slice: "markerRing" };
 const MARKER_GOD_WIN = { class: "marker-god-win", slice: "markerDot" };
 const MARKER_GOD_DRAW = { class: "marker-god-draw", slice: "markerDot" };
 const MARKER_GOD_LOSS = { class: "marker-god-loss", slice: "markerDot" };
@@ -445,13 +463,21 @@ function selectSquare(sq) {
         let markerDef = MARKER_GOD_DRAW;
         if (data.moverWdl === -2) markerDef = MARKER_GOD_WIN;
         else if (data.moverWdl === 2) markerDef = MARKER_GOD_LOSS;
+        
+        const isCapture = !!chess.get(dest);
         const marker = { ...markerDef };
+        if (isCapture) marker.slice = "markerRing";
+        
         if (data.moverWdl !== 0 && data.dtm !== Infinity) marker.dtm = data.dtm;
         overlayMarkers.add(marker, dest);
       });
+      });
     } else {
       const moves = chess.moves({ square: selectedSquare, verbose: true });
-      moves.forEach(m => overlayMarkers.add(MARKER_DEST, m.to));
+      moves.forEach(m => {
+        const isCapture = !!m.captured;
+        overlayMarkers.add(isCapture ? MARKER_CAPTURE : MARKER_DEST, m.to);
+      });
     }
   }
 }
