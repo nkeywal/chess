@@ -196,6 +196,21 @@ def filter_notb_kp_vs_k(board: chess.Board) -> bool:
     if d_bk_p > 4:
         return False
 
+    # Avoid positions where Black attacks the pawn and White cannot protect it or move it to safety.
+    if d_bk_p == 1:
+        can_save = False
+        for move in board.legal_moves:
+            if move.from_square == p:
+                if _cheb_dist(bk, move.to_square) > 1 or _cheb_dist(wk, move.to_square) == 1:
+                    can_save = True
+                    break
+            elif move.from_square == wk:
+                if _cheb_dist(move.to_square, p) == 1:
+                    can_save = True
+                    break
+        if not can_save:
+            return False
+
     # Pawn square heuristic.
     moves_to_promote = 7 - pr
     promo_sq = _pawn_promo_sq(pf)
