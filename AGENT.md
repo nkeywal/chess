@@ -7,7 +7,7 @@ This document outlines the rules and environment constraints for any AI agent wo
 - **Tablebases**: Gaviota tablebases are expected in the `gaviota/` directory for any data generation tasks.
 
 ## Constraints
-- **Git Usage**: Do NOT execute any `git` commands (commit, push, etc.). The user manages the repository state.
+- **Git Usage**: Do NOT execute any `git` commands (commit, push, etc.) unless explicitly requested by the user. The user normally manages the repository state.
 - **Language**: All source code, documentation, and code comments MUST be in **English**.
 - **Coding Style**: Do NOT write unnecessary defensive code. Focus on clarity and performance while assuming valid internal state where appropriate.
 - **Data Integrity**: Never modify files in `data/` manually. Always use the provided generation and downsampling scripts to maintain consistency.
